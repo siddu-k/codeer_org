@@ -1,0 +1,30 @@
+/* Asterion Regular Font */
+@font-face {
+    font-family: 'Asterion';
+    src: url('/fonts/asterion-regular.woff2') format('woff2'),
+        url('/fonts/asterion-regular.woff') format('woff'),
+        url('/fonts/asterion-regular.ttf') format('truetype');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Asterion';
+    src: url('/fonts/asterion-bold.woff2') format('woff2'),
+        url('/fonts/asterion-bold.woff') format('woff'),
+        url('/fonts/asterion-bold.ttf') format('truetype');
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Asterion';
+    src: url('/fonts/asterion-black.woff2') format('woff2'),
+        url('/fonts/asterion-black.woff') format('woff'),
+        url('/fonts/asterion-black.ttf') format('truetype');
+    font-weight: 900;
+    font-style: normal;
+    font-display: swap;
+}
