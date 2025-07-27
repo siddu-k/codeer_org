@@ -5,7 +5,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useRepoSetup } from "@/hooks/useRepoSetup";
 import { useGitHubProblems, useCombinedProblems } from "@/hooks/useGitHubProblems";
-import { Home, Lock, Terminal, User, LogOut, Code, Brain, Users, Presentation, BookOpen, ChevronDown, ChevronRight, Info, LayoutDashboard, FileText, Plus, Save, X, Eye, Edit, Trash2, RefreshCw, Github, Cloud, ArrowLeft } from "lucide-react";
+import { Home, Lock, Terminal, User, LogOut, Code, Brain, Users, Presentation, BookOpen, ChevronDown, ChevronRight, Info, LayoutDashboard, FileText, Plus, Save, X, Eye, Edit, Trash2, RefreshCw, Github, Cloud, ArrowLeft, Sparkles } from "lucide-react";
 import Image from "next/image";
 import { syncUserWithSupabase } from "@/lib/userSync";
 import { saveProblemToGitHub } from "@/lib/githubApi";
@@ -590,60 +590,66 @@ export default function HomePage() {
                                             <p className="text-gray-400">Browse and manage your coding challenges</p>
 
                                             {/* Data Source Toggle */}
-                                            <div className="flex items-center gap-4 mt-3">
-                                                <div className="flex items-center gap-2">
-                                                    <label className="flex items-center gap-2 cursor-pointer">
-                                                        <input
-                                                            type="radio"
-                                                            name="dataSource"
-                                                            checked={useGitHubData}
-                                                            onChange={() => setUseGitHubData(true)}
-                                                            className="text-blue-500"
-                                                        />
-                                                        <Github className="w-4 h-4 text-gray-400" />
-                                                        <span className="text-gray-300 text-sm">Community Problems</span>
-                                                        {useGitHubData && (
-                                                            <span className="text-xs text-blue-400 bg-blue-900/30 px-2 py-1 rounded">
-                                                                {githubProblems.stats.total} from repo
-                                                            </span>
-                                                        )}
-                                                    </label>
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    <label className="flex items-center gap-2 cursor-pointer">
-                                                        <input
-                                                            type="radio"
-                                                            name="dataSource"
-                                                            checked={!useGitHubData}
-                                                            onChange={() => setUseGitHubData(false)}
-                                                            className="text-blue-500"
-                                                        />
-                                                        <FileText className="w-4 h-4 text-gray-400" />
-                                                        <span className="text-gray-300 text-sm">CODEER Suggested</span>
-                                                    </label>
+                                            <div className="flex items-center justify-between mt-4">
+                                                {/* Toggle Selector */}
+                                                <div className="relative bg-[#1a1a1a] rounded-lg p-1 border border-[#333] overflow-hidden">
+                                                    {/* Sliding Background */}
+                                                    <div
+                                                        className={`absolute top-1 bottom-1 rounded-md transition-all duration-500 ease-out ${useGitHubData
+                                                            ? 'left-1 right-1/2 bg-[#333] shadow-lg shadow-black/20'
+                                                            : 'left-1/2 right-1 bg-[#333] shadow-lg shadow-black/20'
+                                                            }`}
+                                                    />
+                                                    <div className="flex relative z-10">
+                                                        {/* Community Problems */}
+                                                        <button
+                                                            onClick={() => setUseGitHubData(true)}
+                                                            className={`relative flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all duration-500 ease-out transform ${useGitHubData
+                                                                ? 'text-white scale-105 z-20'
+                                                                : 'text-gray-400 hover:text-gray-300 hover:scale-102 z-10'
+                                                                }`}
+                                                        >
+                                                            <Github className={`w-4 h-4 transition-all duration-300 ${useGitHubData ? 'text-white' : 'text-gray-400'}`} />
+                                                            <span className="transition-all duration-300">Community Problems</span>
+                                                        </button>
+
+                                                        {/* CODEER Suggested */}
+                                                        <button
+                                                            onClick={() => setUseGitHubData(false)}
+                                                            className={`relative flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all duration-500 ease-out transform ${!useGitHubData
+                                                                ? 'text-white scale-105 z-20'
+                                                                : 'text-gray-400 hover:text-gray-300 hover:scale-102 z-10'
+                                                                }`}
+                                                        >
+                                                            <Sparkles className={`w-4 h-4 transition-all duration-300 ${!useGitHubData ? 'text-white' : 'text-gray-400'}`} />
+                                                            <span className="transition-all duration-300">Codeer Suggested</span>
+                                                        </button>
+                                                    </div>
                                                 </div>
 
-                                                {/* GitHub Status */}
-                                                {useGitHubData && (
-                                                    <div className="flex items-center gap-2">
-                                                        {githubProblems.loading ? (
-                                                            <div className="flex items-center gap-1 text-yellow-400 text-xs">
-                                                                <RefreshCw className="w-3 h-3 animate-spin" />
-                                                                Loading...
-                                                            </div>
-                                                        ) : githubProblems.error ? (
-                                                            <div className="flex items-center gap-1 text-red-400 text-xs">
-                                                                <X className="w-3 h-3" />
-                                                                Error
-                                                            </div>
-                                                        ) : (
-                                                            <div className="flex items-center gap-1 text-green-400 text-xs">
-                                                                <Cloud className="w-3 h-3" />
-                                                                Connected
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                )}
+                                                {/* Status Indicator */}
+                                                <div className="flex items-center gap-6 ml-8">
+                                                    {useGitHubData && (
+                                                        <div className="flex items-center gap-2 animate-in slide-in-from-right-4 fade-in duration-400">
+                                                            {githubProblems.loading ? (
+                                                                <div className="flex items-center gap-2 text-yellow-400 text-sm bg-yellow-900/20 px-4 py-2 rounded-full border border-yellow-600/30 animate-pulse">
+                                                                    <RefreshCw className="w-3 h-3 animate-spin" />
+                                                                    <span>Loading...</span>
+                                                                </div>
+                                                            ) : githubProblems.error ? (
+                                                                <div className="flex items-center gap-2 text-red-400 text-sm bg-red-900/20 px-4 py-2 rounded-full border border-red-600/30 animate-in shake duration-300">
+                                                                    <X className="w-3 h-3" />
+                                                                    <span>Connection Error</span>
+                                                                </div>
+                                                            ) : (
+                                                                <div className="flex items-center gap-2 text-green-400 text-sm bg-green-900/20 px-4 py-2 rounded-full border border-green-600/30 animate-in slide-in-from-bottom-2 duration-300">
+                                                                    <Cloud className="w-3 h-3 animate-pulse" />
+                                                                    <span>Connected</span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-2">
@@ -735,8 +741,11 @@ export default function HomePage() {
                                     {/* Problems List/Grid */}
                                     <div className="space-y-4">
                                         {isLoadingProblems ? (
-                                            <div className="text-center py-12">
-                                                <div className="text-gray-400">Loading problems...</div>
+                                            <div className="text-center py-12 animate-in fade-in duration-300">
+                                                <div className="inline-flex items-center gap-2 text-gray-400">
+                                                    <RefreshCw className="w-4 h-4 animate-spin" />
+                                                    <span>Loading problems...</span>
+                                                </div>
                                             </div>
                                         ) : filteredProblems.length > 0 ? (
                                             filteredProblems.map((problem, index) => {
@@ -755,7 +764,12 @@ export default function HomePage() {
                                                 return (
                                                     <div
                                                         key={uniqueKey}
-                                                        className="bg-[#1a1a1a] rounded-lg border border-[#333] p-6 hover:border-[#404040] transition-colors cursor-pointer"
+                                                        className="bg-[#1a1a1a] rounded-lg border border-[#333] p-6 hover:border-[#404040] hover:shadow-lg hover:shadow-black/20 transition-all duration-300 ease-out cursor-pointer transform hover:scale-[1.01] animate-in slide-in-from-bottom-6 fade-in"
+                                                        style={{
+                                                            animationDelay: `${index * 50}ms`,
+                                                            animationDuration: '500ms',
+                                                            animationFillMode: 'both'
+                                                        }}
                                                         onClick={() => handleProblemClick(problem)}
                                                     >
                                                         <div className="flex items-start justify-between">
