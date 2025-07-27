@@ -1,14 +1,16 @@
 "use client";
 
 import { useSession, signOut } from "next-auth/react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useRepoSetup } from "@/hooks/useRepoSetup";
-import { Home, Lock, Terminal, User, LogOut, Code, Brain, Users, Presentation, BookOpen, ChevronDown, ChevronRight, Info, LayoutDashboard, FileText, Plus, Save, X, Eye, Edit, Trash2, RefreshCw } from "lucide-react";
+import { useGitHubProblems, useCombinedProblems } from "@/hooks/useGitHubProblems";
+import { Home, Lock, Terminal, User, LogOut, Code, Brain, Users, Presentation, BookOpen, ChevronDown, ChevronRight, Info, LayoutDashboard, FileText, Plus, Save, X, Eye, Edit, Trash2, RefreshCw, Github, Cloud, ArrowLeft } from "lucide-react";
 import Image from "next/image";
 import { syncUserWithSupabase } from "@/lib/userSync";
 import { saveProblemToGitHub } from "@/lib/githubApi";
 import { loadProblems, calculateProblemStats, filterAndSortProblems, formatDate, type Problem, type ProblemStats } from "@/lib/problemsUtils";
+import { type GitHubProblem } from "@/hooks/useGitHubProblems";
 
 export default function HomePage() {
     const { data: session, status } = useSession();
@@ -34,6 +36,10 @@ export default function HomePage() {
         finalAnswer: ""
     });
 
+    // GitHub problems integration
+    const githubProblems = useGitHubProblems();
+    const combinedProblems = useCombinedProblems();
+
     // Problems page state
     const [problems, setProblems] = useState<Problem[]>([]);
     const [problemStats, setProblemStats] = useState<ProblemStats>({
@@ -43,12 +49,19 @@ export default function HomePage() {
         hard: 0,
         categories: {}
     });
+    const [useGitHubData, setUseGitHubData] = useState(true); // Toggle between local and GitHub data
     const [searchQuery, setSearchQuery] = useState("");
     const [difficultyFilter, setDifficultyFilter] = useState("");
     const [categoryFilter, setCategoryFilter] = useState("");
     const [sortBy, setSortBy] = useState("newest");
     const [filteredProblems, setFilteredProblems] = useState<Problem[]>([]);
     const [isLoadingProblems, setIsLoadingProblems] = useState(false);
+
+    // Problem solving page state
+    const [selectedProblem, setSelectedProblem] = useState<Problem | GitHubProblem | null>(null);
+    const [isInSolvingMode, setIsInSolvingMode] = useState(false);
+    const [code, setCode] = useState("// Write your solution here\n");
+    const [selectedLanguage, setSelectedLanguage] = useState("javascript");
 
     const handleSaveProblem = async () => {
         console.log('HandleSaveProblem called');
@@ -91,11 +104,20 @@ export default function HomePage() {
         }
     };
 
-    // Function to load problems from local directory
-    const loadProblemsData = async () => {
+    // Function to load problems (local or GitHub)
+    const loadProblemsData = useCallback(async () => {
         setIsLoadingProblems(true);
         try {
-            const problemsData = await loadProblems();
+            let problemsData: Problem[] = [];
+
+            if (useGitHubData) {
+                // Use GitHub problems ONLY (not combined)
+                problemsData = githubProblems.problems;
+            } else {
+                // Use local problems only
+                problemsData = await loadProblems();
+            }
+
             setProblems(problemsData);
             setProblemStats(calculateProblemStats(problemsData));
 
@@ -113,7 +135,58 @@ export default function HomePage() {
         } finally {
             setIsLoadingProblems(false);
         }
+    }, [useGitHubData, searchQuery, difficultyFilter, categoryFilter, sortBy, githubProblems.problems]);
+
+    // Unified refresh function for both GitHub and local data
+    const handleRefresh = async () => {
+        if (useGitHubData) {
+            // Refresh GitHub data
+            await githubProblems.refresh();
+        } else {
+            // Refresh local data
+            await loadProblemsData();
+        }
     };
+
+    // Handle problem selection for solving
+    const handleProblemClick = (problem: Problem) => {
+        setSelectedProblem(problem);
+        setIsInSolvingMode(true);
+        setCode("// Write your solution here\n");
+    };
+
+    // Handle closing problem solving mode
+    const handleCloseSolving = () => {
+        setIsInSolvingMode(false);
+        setSelectedProblem(null);
+        setCode("// Write your solution here\n");
+    };
+
+    // Update problems when GitHub data changes or toggle switches
+    useEffect(() => {
+        if (useGitHubData && !githubProblems.loading) {
+            setProblems(githubProblems.problems);
+            setProblemStats({
+                total: githubProblems.stats.total,
+                easy: githubProblems.stats.easy,
+                medium: githubProblems.stats.medium,
+                hard: githubProblems.stats.hard,
+                categories: githubProblems.stats.categories
+            });
+
+            // Apply current filters
+            const filtered = filterAndSortProblems(
+                githubProblems.problems,
+                searchQuery,
+                difficultyFilter,
+                categoryFilter,
+                sortBy
+            );
+            setFilteredProblems(filtered);
+        } else if (!useGitHubData) {
+            loadProblemsData();
+        }
+    }, [useGitHubData, githubProblems.loading, githubProblems.stats.total, githubProblems.problems, searchQuery, difficultyFilter, categoryFilter, sortBy, loadProblemsData]);
 
     // Function to handle filtering and sorting
     const applyFilters = () => {
@@ -127,17 +200,26 @@ export default function HomePage() {
         setFilteredProblems(filtered);
     };
 
-    // Apply filters whenever filter state changes
+    // Apply filters whenever filter state changes (but not when problems change, to avoid infinite loops)
     useEffect(() => {
-        applyFilters();
-    }, [problems, searchQuery, difficultyFilter, categoryFilter, sortBy]);
+        if (problems.length > 0) {
+            const filtered = filterAndSortProblems(
+                problems,
+                searchQuery,
+                difficultyFilter,
+                categoryFilter,
+                sortBy
+            );
+            setFilteredProblems(filtered);
+        }
+    }, [searchQuery, difficultyFilter, categoryFilter, sortBy]); // Removed 'problems' to prevent infinite loops
 
     // Load problems when component mounts or when problems tab is accessed
     useEffect(() => {
         if (activeTab === "problems") {
             loadProblemsData();
         }
-    }, [activeTab]);
+    }, [activeTab, loadProblemsData]);
 
     useEffect(() => {
         if (status === "unauthenticated") {
@@ -506,15 +588,75 @@ export default function HomePage() {
                                         <div>
                                             <h1 className="text-white text-3xl font-bold mb-2">Problems Collection</h1>
                                             <p className="text-gray-400">Browse and manage your coding challenges</p>
+
+                                            {/* Data Source Toggle */}
+                                            <div className="flex items-center gap-4 mt-3">
+                                                <div className="flex items-center gap-2">
+                                                    <label className="flex items-center gap-2 cursor-pointer">
+                                                        <input
+                                                            type="radio"
+                                                            name="dataSource"
+                                                            checked={useGitHubData}
+                                                            onChange={() => setUseGitHubData(true)}
+                                                            className="text-blue-500"
+                                                        />
+                                                        <Github className="w-4 h-4 text-gray-400" />
+                                                        <span className="text-gray-300 text-sm">Community Problems</span>
+                                                        {useGitHubData && (
+                                                            <span className="text-xs text-blue-400 bg-blue-900/30 px-2 py-1 rounded">
+                                                                {githubProblems.stats.total} from repo
+                                                            </span>
+                                                        )}
+                                                    </label>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <label className="flex items-center gap-2 cursor-pointer">
+                                                        <input
+                                                            type="radio"
+                                                            name="dataSource"
+                                                            checked={!useGitHubData}
+                                                            onChange={() => setUseGitHubData(false)}
+                                                            className="text-blue-500"
+                                                        />
+                                                        <FileText className="w-4 h-4 text-gray-400" />
+                                                        <span className="text-gray-300 text-sm">CODEER Suggested</span>
+                                                    </label>
+                                                </div>
+
+                                                {/* GitHub Status */}
+                                                {useGitHubData && (
+                                                    <div className="flex items-center gap-2">
+                                                        {githubProblems.loading ? (
+                                                            <div className="flex items-center gap-1 text-yellow-400 text-xs">
+                                                                <RefreshCw className="w-3 h-3 animate-spin" />
+                                                                Loading...
+                                                            </div>
+                                                        ) : githubProblems.error ? (
+                                                            <div className="flex items-center gap-1 text-red-400 text-xs">
+                                                                <X className="w-3 h-3" />
+                                                                Error
+                                                            </div>
+                                                        ) : (
+                                                            <div className="flex items-center gap-1 text-green-400 text-xs">
+                                                                <Cloud className="w-3 h-3" />
+                                                                Connected
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
-                                        <button
-                                            onClick={loadProblemsData}
-                                            disabled={isLoadingProblems}
-                                            className="flex items-center gap-2 px-4 py-2 bg-[#1a1a1a] hover:bg-[#333] border border-[#404040] text-white rounded-lg transition-colors disabled:opacity-50"
-                                        >
-                                            <RefreshCw className={`w-4 h-4 ${isLoadingProblems ? 'animate-spin' : ''}`} />
-                                            Refresh
-                                        </button>
+                                        <div className="flex items-center gap-2">
+                                            {/* Single unified refresh button */}
+                                            <button
+                                                onClick={handleRefresh}
+                                                disabled={githubProblems.loading || isLoadingProblems}
+                                                className="flex items-center justify-center p-2 bg-[#1a1a1a] hover:bg-[#333] border border-[#404040] text-gray-400 hover:text-white rounded-lg transition-colors disabled:opacity-50"
+                                                title={useGitHubData ? "Refresh Community Problems" : "Refresh CODEER Suggested Problems"}
+                                            >
+                                                <RefreshCw className={`w-4 h-4 ${(githubProblems.loading || isLoadingProblems) ? 'animate-spin' : ''}`} />
+                                            </button>
+                                        </div>
                                     </div>
 
                                     {/* Filter and Search */}
@@ -611,7 +753,11 @@ export default function HomePage() {
                                                 const uniqueKey = problem.id || `problem-${index}`;
 
                                                 return (
-                                                    <div key={uniqueKey} className="bg-[#1a1a1a] rounded-lg border border-[#333] p-6 hover:border-[#404040] transition-colors cursor-pointer">
+                                                    <div
+                                                        key={uniqueKey}
+                                                        className="bg-[#1a1a1a] rounded-lg border border-[#333] p-6 hover:border-[#404040] transition-colors cursor-pointer"
+                                                        onClick={() => handleProblemClick(problem)}
+                                                    >
                                                         <div className="flex items-start justify-between">
                                                             <div className="flex-1">
                                                                 <div className="flex items-center gap-3 mb-2">
@@ -641,41 +787,6 @@ export default function HomePage() {
                                                                         </>
                                                                     )}
                                                                 </div>
-                                                            </div>
-                                                            <div className="flex items-center gap-2 ml-4">
-                                                                <button
-                                                                    className="p-2 hover:bg-[#333] rounded-lg transition-colors"
-                                                                    title="View Problem"
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        // TODO: Implement view problem modal
-                                                                        console.log('View problem:', problem.id);
-                                                                    }}
-                                                                >
-                                                                    <Eye className="w-4 h-4 text-gray-400" />
-                                                                </button>
-                                                                <button
-                                                                    className="p-2 hover:bg-[#333] rounded-lg transition-colors"
-                                                                    title="Edit Problem"
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        // TODO: Implement edit problem functionality
-                                                                        console.log('Edit problem:', problem.id);
-                                                                    }}
-                                                                >
-                                                                    <Edit className="w-4 h-4 text-gray-400" />
-                                                                </button>
-                                                                <button
-                                                                    className="p-2 hover:bg-[#333] rounded-lg transition-colors"
-                                                                    title="Delete Problem"
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        // TODO: Implement delete problem functionality
-                                                                        console.log('Delete problem:', problem.id);
-                                                                    }}
-                                                                >
-                                                                    <Trash2 className="w-4 h-4 text-gray-400" />
-                                                                </button>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -1172,6 +1283,231 @@ export default function HomePage() {
                                     </div>
                                     <div className="bg-[#1a1a1a] rounded-xl border border-[#333] p-8 text-gray-400 h-full flex items-center justify-center">
                                         Project publishing interface will be implemented here
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Problem Solving Interface - Full Screen */}
+                        {isInSolvingMode && selectedProblem && (
+                            <div className="fixed inset-0 bg-black z-50 flex flex-col">
+                                {/* Header */}
+                                <div className="bg-[#1a1a1a] border-b border-[#333] px-4 py-2 flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <button
+                                            onClick={handleCloseSolving}
+                                            className="flex items-center gap-1 px-2 py-1 bg-[#333] hover:bg-[#404040] text-white rounded text-sm transition-colors"
+                                        >
+                                            <ArrowLeft className="w-3 h-3" />
+                                            Back
+                                        </button>
+                                        <div className="flex items-center gap-2">
+                                            <h1 className="text-white text-lg font-semibold">{selectedProblem.title}</h1>
+                                            <span className={`px-2 py-1 text-xs rounded-full border ${selectedProblem.difficulty === 'easy' ? 'bg-green-900/50 text-green-400 border-green-600' :
+                                                selectedProblem.difficulty === 'medium' ? 'bg-yellow-900/50 text-yellow-400 border-yellow-600' :
+                                                    'bg-red-900/50 text-red-400 border-red-600'
+                                                }`}>
+                                                {selectedProblem.difficulty === 'easy' ? '🟢' :
+                                                    selectedProblem.difficulty === 'medium' ? '🟡' : '🔴'}
+                                                {selectedProblem.difficulty?.charAt(0).toUpperCase() + selectedProblem.difficulty?.slice(1)}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Main Content */}
+                                <div className="flex-1 flex h-0">
+                                    {/* Left Panel - Problem Description */}
+                                    <div className="w-1/2 bg-black border-r border-[#333] overflow-y-auto h-full scrollbar-hide">
+                                        <div className="p-6">
+                                            <div className="mb-6">
+                                                <h2 className="text-white text-2xl font-bold mb-4">Problem Description</h2>
+                                                <div className="text-gray-300 mb-6 leading-relaxed">
+                                                    {selectedProblem.description || 'No description available'}
+                                                </div>
+                                            </div>
+
+                                            {/* Input/Output Format */}
+                                            {(selectedProblem.inputFormat || selectedProblem.outputFormat) && (
+                                                <div className="mb-6">
+                                                    <h3 className="text-white text-lg font-semibold mb-3">Format</h3>
+                                                    {selectedProblem.inputFormat && (
+                                                        <div className="mb-4">
+                                                            <h4 className="text-gray-300 font-medium mb-2">Input:</h4>
+                                                            <div className="bg-[#1a1a1a] rounded-lg p-4 text-gray-300 text-sm">
+                                                                {selectedProblem.inputFormat}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                    {selectedProblem.outputFormat && (
+                                                        <div className="mb-4">
+                                                            <h4 className="text-gray-300 font-medium mb-2">Output:</h4>
+                                                            <div className="bg-[#1a1a1a] rounded-lg p-4 text-gray-300 text-sm">
+                                                                {selectedProblem.outputFormat}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            {/* Examples */}
+                                            {selectedProblem.examples && selectedProblem.examples.length > 0 && (
+                                                <div className="mb-6">
+                                                    <h3 className="text-white text-lg font-semibold mb-3">Examples</h3>
+                                                    {selectedProblem.examples.map((example, index) => (
+                                                        <div key={index} className="mb-4 bg-[#1a1a1a] rounded-lg p-4">
+                                                            <h4 className="text-gray-300 font-medium mb-3">Example {index + 1}:</h4>
+                                                            <div className="grid grid-cols-2 gap-4 mb-3">
+                                                                <div>
+                                                                    <div className="text-gray-400 text-sm mb-1">Input:</div>
+                                                                    <div className="bg-[#111] rounded p-3 text-green-400 font-mono text-sm">
+                                                                        {example.input}
+                                                                    </div>
+                                                                </div>
+                                                                <div>
+                                                                    <div className="text-gray-400 text-sm mb-1">Output:</div>
+                                                                    <div className="bg-[#111] rounded p-3 text-blue-400 font-mono text-sm">
+                                                                        {example.output}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            {example.explanation && (
+                                                                <div>
+                                                                    <div className="text-gray-400 text-sm mb-1">Explanation:</div>
+                                                                    <div className="text-gray-300 text-sm">
+                                                                        {example.explanation}
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            {/* Constraints */}
+                                            {selectedProblem.constraints && (
+                                                <div className="mb-6">
+                                                    <h3 className="text-white text-lg font-semibold mb-3">Constraints</h3>
+                                                    <div className="bg-[#1a1a1a] rounded-lg p-4 text-gray-300 text-sm">
+                                                        {selectedProblem.constraints}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Tags */}
+                                            {selectedProblem.tags && selectedProblem.tags.length > 0 && (
+                                                <div className="mb-6">
+                                                    <h3 className="text-white text-lg font-semibold mb-3">Tags</h3>
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {selectedProblem.tags.map((tag, index) => (
+                                                            <span
+                                                                key={index}
+                                                                className="px-3 py-1 bg-blue-900/50 text-blue-400 text-sm rounded-full border border-blue-600"
+                                                            >
+                                                                {tag}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Solution */}
+                                            {((selectedProblem as GitHubProblem).finalAnswer || (selectedProblem as Problem).solution) && (
+                                                <div className="mb-6">
+                                                    <h3 className="text-white text-lg font-semibold mb-3">Solution</h3>
+                                                    <div className="bg-[#1a1a1a] rounded-lg p-4 text-gray-300 text-sm leading-relaxed whitespace-pre-wrap">
+                                                        {(selectedProblem as GitHubProblem).finalAnswer || (selectedProblem as Problem).solution}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Author Information */}
+                                            {((selectedProblem as GitHubProblem).author || (selectedProblem as Problem).createdBy) && (
+                                                <div className="mb-6">
+                                                    <div className="text-center py-4 border-t border-[#333]">
+                                                        <div className="text-gray-400 text-sm">
+                                                            Created by <span className="text-blue-400 font-medium">{(selectedProblem as GitHubProblem).author || (selectedProblem as Problem).createdBy}</span>
+                                                        </div>
+                                                        <div className="text-gray-500 text-xs mt-1">
+                                                            Created with CODEER Platform
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Right Panel - Code Editor */}
+                                    <div className="w-1/2 bg-[#0d1117] flex flex-col">
+                                        {/* Editor Header */}
+                                        <div className="bg-[#1a1a1a] border-b border-[#333] px-4 py-3 flex items-center justify-between">
+                                            <div className="flex items-center gap-4">
+                                                <div className="flex items-center gap-2">
+                                                    <label className="text-gray-300 text-sm">Language:</label>
+                                                    <select
+                                                        value={selectedLanguage}
+                                                        onChange={(e) => setSelectedLanguage(e.target.value)}
+                                                        className="bg-[#333] text-white px-3 py-1 rounded text-sm border border-[#404040]"
+                                                    >
+                                                        <option value="javascript">JavaScript</option>
+                                                        <option value="python">Python</option>
+                                                        <option value="java">Java</option>
+                                                        <option value="cpp">C++</option>
+                                                        <option value="c">C</option>
+                                                        <option value="csharp">C#</option>
+                                                        <option value="go">Go</option>
+                                                        <option value="rust">Rust</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <button className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-sm transition-colors">
+                                                    Run
+                                                </button>
+                                                <button className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm transition-colors">
+                                                    Test
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {/* Code Editor */}
+                                        <div className="flex-1 relative">
+                                            <textarea
+                                                value={code}
+                                                onChange={(e) => setCode(e.target.value)}
+                                                className="w-full h-full p-4 bg-[#0d1117] text-white font-mono text-sm resize-none focus:outline-none placeholder-gray-500 placeholder-opacity-50"
+                                                placeholder="// Write your solution here..."
+                                                style={{
+                                                    lineHeight: '1.5',
+                                                    tabSize: '4'
+                                                }}
+                                            />
+                                        </div>
+
+                                        {/* Output Panel */}
+                                        <div className="h-40 bg-[#1a1a1a] border-t border-[#333]">
+                                            <div className="px-4 py-2 border-b border-[#333]">
+                                                <h3 className="text-white text-sm font-medium">Output</h3>
+                                            </div>
+                                            <div className="p-4 h-full overflow-auto">
+                                                <div className="text-gray-400 text-sm font-mono">
+                                                    // Output will appear here...
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Input Panel */}
+                                        <div className="h-32 bg-[#1a1a1a] border-t border-[#333]">
+                                            <div className="px-4 py-2 border-b border-[#333]">
+                                                <h3 className="text-white text-sm font-medium">Input</h3>
+                                            </div>
+                                            <div className="p-3">
+                                                <textarea
+                                                    placeholder="Enter test input here..."
+                                                    className="w-full h-20 bg-[#0d1117] text-white font-mono text-sm resize-none focus:outline-none border border-[#333] rounded p-3"
+                                                />
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

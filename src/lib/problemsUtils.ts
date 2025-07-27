@@ -15,7 +15,7 @@ export interface Problem {
     }>;
     solution?: string;
     createdBy?: string;
-    createdAt: Date;
+    createdAt?: Date | string; // Support both Date objects and string dates from JSON
     filename: string;
 }
 
@@ -72,6 +72,18 @@ export function calculateProblemStats(problems: Problem[]): ProblemStats {
     return stats;
 }
 
+// Helper function to safely get time from date
+function getTimeFromDate(date: Date | string | undefined): number {
+    if (!date) return 0;
+
+    try {
+        const dateObj = date instanceof Date ? date : new Date(date);
+        return isNaN(dateObj.getTime()) ? 0 : dateObj.getTime();
+    } catch {
+        return 0;
+    }
+}
+
 // Function to filter and sort problems
 export function filterAndSortProblems(
     problems: Problem[],
@@ -106,9 +118,9 @@ export function filterAndSortProblems(
     filtered.sort((a, b) => {
         switch (sortBy) {
             case 'newest':
-                return b.createdAt.getTime() - a.createdAt.getTime();
+                return getTimeFromDate(b.createdAt) - getTimeFromDate(a.createdAt);
             case 'oldest':
-                return a.createdAt.getTime() - b.createdAt.getTime();
+                return getTimeFromDate(a.createdAt) - getTimeFromDate(b.createdAt);
             case 'title':
                 return a.title.localeCompare(b.title);
             case 'difficulty':
@@ -123,14 +135,26 @@ export function filterAndSortProblems(
 }
 
 // Function to format date for display
-export function formatDate(date: Date): string {
+export function formatDate(date: Date | string | undefined): string {
+    if (!date) {
+        return 'No date available';
+    }
+
+    // Convert string dates to Date objects
+    const dateObj = date instanceof Date ? date : new Date(date);
+
+    // Check if the date is valid
+    if (isNaN(dateObj.getTime())) {
+        return 'Invalid date';
+    }
+
     const now = new Date();
-    const diffTime = Math.abs(now.getTime() - date.getTime());
+    const diffTime = Math.abs(now.getTime() - dateObj.getTime());
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
     if (diffDays === 1) return 'Today';
     if (diffDays === 2) return 'Yesterday';
     if (diffDays <= 7) return `${diffDays} days ago`;
 
-    return date.toLocaleDateString();
+    return dateObj.toLocaleDateString();
 }
