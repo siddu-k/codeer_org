@@ -435,7 +435,7 @@ async function saveToForkAndCreatePR(
         console.log('🚀 Starting fork-based workflow...');
 
         const mainRepoOwner = 'sriox-cloud';
-        const mainRepoName = 'codeer';
+        const mainRepoName = 'codeer_problems';
 
         // Get user info
         const userResponse = await fetch('https://api.github.com/user', {
