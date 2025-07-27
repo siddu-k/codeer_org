@@ -2,9 +2,11 @@
 
 import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
+import { useToast } from "@/components/toast-provider";
 
 export function useRepoSetup() {
     const { data: session, status } = useSession();
+    const { showToast, updateToast } = useToast();
     const [repoStatus, setRepoStatus] = useState<{
         loading: boolean;
         error?: string;
@@ -16,6 +18,9 @@ export function useRepoSetup() {
         const setupRepository = async () => {
             if (status === "authenticated" && session?.accessToken) {
                 setRepoStatus({ loading: true });
+
+                // Show loading toast
+                const toastId = showToast("Setting up your data repository...", "loading");
 
                 try {
                     const response = await fetch("/api/setup-repo", {
@@ -38,15 +43,16 @@ export function useRepoSetup() {
                         });
 
                         if (result.created) {
-                            console.log("✅ Created new codeer_org_data repository");
+                            updateToast(toastId, "Repository created successfully! 🎉", "success");
                         } else if (result.exists) {
-                            console.log("✅ Repository codeer_org_data already exists");
+                            updateToast(toastId, "Repository is ready and up to date ✨", "success");
                         }
                     } else {
                         setRepoStatus({
                             loading: false,
                             error: result.error || "Failed to setup repository",
                         });
+                        updateToast(toastId, `Setup failed: ${result.error || "Unknown error"}`, "error");
                     }
                 } catch (error) {
                     console.error("Repository setup error:", error);
@@ -54,6 +60,7 @@ export function useRepoSetup() {
                         loading: false,
                         error: "Network error during repository setup",
                     });
+                    updateToast(toastId, "Network error during setup", "error");
                 }
             }
         };
@@ -62,7 +69,7 @@ export function useRepoSetup() {
         if (status === "authenticated" && session?.accessToken && !repoStatus.loading && !repoStatus.success) {
             setupRepository();
         }
-    }, [status, session, repoStatus.loading, repoStatus.success]);
+    }, [status, session, repoStatus.loading, repoStatus.success, showToast, updateToast]);
 
     return repoStatus;
 }
