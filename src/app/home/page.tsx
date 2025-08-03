@@ -5,7 +5,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useRepoSetup } from "@/hooks/useRepoSetup";
 import { useGitHubProblems, useCombinedProblems } from "@/hooks/useGitHubProblems";
-import { Home, Lock, Terminal, User, LogOut, Code, Brain, Users, Presentation, BookOpen, ChevronDown, ChevronRight, Info, LayoutDashboard, FileText, Plus, Save, X, Eye, Edit, Trash2, RefreshCw, Github, Cloud, ArrowLeft, Sparkles } from "lucide-react";
+import { Home, Lock, Terminal, User, LogOut, Code, Brain, Users, Presentation, BookOpen, ChevronDown, ChevronRight, Info, LayoutDashboard, FileText, Plus, Save, X, Eye, Edit, Trash2, RefreshCw, Github, Cloud, ArrowLeft, Sparkles, Settings, Search, ExternalLink } from "lucide-react";
 import Image from "next/image";
 import { syncUserWithSupabase } from "@/lib/userSync";
 import { saveProblemToGitHub } from "@/lib/githubApi";
@@ -56,6 +56,9 @@ export default function HomePage() {
     const [sortBy, setSortBy] = useState("newest");
     const [filteredProblems, setFilteredProblems] = useState<Problem[]>([]);
     const [isLoadingProblems, setIsLoadingProblems] = useState(false);
+
+    // Problem page mode state
+    const [problemPageMode, setProblemPageMode] = useState<'browse' | 'add' | 'manage'>('browse');
 
     // Problem solving page state
     const [selectedProblem, setSelectedProblem] = useState<Problem | GitHubProblem | null>(null);
@@ -583,14 +586,60 @@ export default function HomePage() {
                         {!activeQuickCreateTab && activeTab === "problems" && (
                             <div className="h-full w-full animate-in fade-in slide-in-from-right-4 duration-500 overflow-auto">
                                 <div className="p-6">
-                                    {/* Header */}
+                                    {/* Header with Mode Toggle */}
                                     <div className="flex items-center justify-between mb-8">
                                         <div>
-                                            <h1 className="text-white text-3xl font-bold mb-2">Problems Collection</h1>
-                                            <p className="text-gray-400">Browse and manage your coding challenges</p>
+                                            <h1 className="text-white text-3xl font-bold mb-2">Problems</h1>
+                                            <p className="text-gray-400">Browse, create, and manage coding problems</p>
+                                        </div>
 
+                                        {/* Mode Toggle Slider */}
+                                        <div className="relative bg-[#1a1a1a] rounded-xl p-1 border border-[#333]">
+                                            <div className="flex relative">
+                                                {/* Sliding Background */}
+                                                <div
+                                                    className="absolute top-1 bottom-1 bg-[#333] rounded-lg transition-all duration-300 ease-out"
+                                                    style={{
+                                                        left: problemPageMode === 'browse' ? '4px' : problemPageMode === 'add' ? 'calc(33.33% + 1px)' : 'calc(66.66% + 2px)',
+                                                        width: 'calc(33.33% - 2px)'
+                                                    }}
+                                                />
+
+                                                {/* Browse Button */}
+                                                <button
+                                                    onClick={() => setProblemPageMode('browse')}
+                                                    className={`relative z-10 px-4 py-2 text-sm font-medium transition-colors duration-300 rounded-lg min-w-[100px] ${problemPageMode === 'browse' ? 'text-white' : 'text-gray-400 hover:text-gray-300'
+                                                        }`}
+                                                >
+                                                    Browse
+                                                </button>
+
+                                                {/* Add Button */}
+                                                <button
+                                                    onClick={() => setProblemPageMode('add')}
+                                                    className={`relative z-10 px-4 py-2 text-sm font-medium transition-colors duration-300 rounded-lg min-w-[100px] ${problemPageMode === 'add' ? 'text-white' : 'text-gray-400 hover:text-gray-300'
+                                                        }`}
+                                                >
+                                                    Add Problem
+                                                </button>
+
+                                                {/* Manage Button */}
+                                                <button
+                                                    onClick={() => setProblemPageMode('manage')}
+                                                    className={`relative z-10 px-4 py-2 text-sm font-medium transition-colors duration-300 rounded-lg min-w-[100px] ${problemPageMode === 'manage' ? 'text-white' : 'text-gray-400 hover:text-gray-300'
+                                                        }`}
+                                                >
+                                                    Manage
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Browse Mode Content */}
+                                    {problemPageMode === 'browse' && (
+                                        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                                             {/* Data Source Toggle */}
-                                            <div className="flex items-center justify-between mt-4">
+                                            <div className="flex items-center justify-between mt-4 mb-6">
                                                 {/* Toggle Selector */}
                                                 <div className="relative bg-[#1a1a1a] rounded-lg p-1 border border-[#333] overflow-hidden">
                                                     {/* Sliding Background */}
@@ -627,7 +676,7 @@ export default function HomePage() {
                                                     </div>
                                                 </div>
 
-                                                {/* Status Indicator */}
+                                                {/* Status Indicator and Refresh */}
                                                 <div className="flex items-center gap-6 ml-8">
                                                     {useGitHubData && (
                                                         <div className="flex items-center gap-2 animate-in slide-in-from-right-4 fade-in duration-400">
@@ -649,191 +698,623 @@ export default function HomePage() {
                                                             )}
                                                         </div>
                                                     )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            {/* Single unified refresh button */}
-                                            <button
-                                                onClick={handleRefresh}
-                                                disabled={githubProblems.loading || isLoadingProblems}
-                                                className="flex items-center justify-center p-2 bg-[#1a1a1a] hover:bg-[#333] border border-[#404040] text-gray-400 hover:text-white rounded-lg transition-colors disabled:opacity-50"
-                                                title={useGitHubData ? "Refresh Community Problems" : "Refresh CODEER Suggested Problems"}
-                                            >
-                                                <RefreshCw className={`w-4 h-4 ${(githubProblems.loading || isLoadingProblems) ? 'animate-spin' : ''}`} />
-                                            </button>
-                                        </div>
-                                    </div>
 
-                                    {/* Filter and Search */}
-                                    <div className="mb-6 grid grid-cols-12 gap-4">
-                                        <div className="col-span-6">
-                                            <input
-                                                type="text"
-                                                placeholder="Search problems..."
-                                                value={searchQuery}
-                                                onChange={(e) => setSearchQuery(e.target.value)}
-                                                className="w-full bg-[#1a1a1a] border border-[#333] rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none"
-                                            />
-                                        </div>
-                                        <div className="col-span-2">
-                                            <select
-                                                value={difficultyFilter}
-                                                onChange={(e) => setDifficultyFilter(e.target.value)}
-                                                className="w-full bg-[#1a1a1a] border border-[#333] rounded-lg px-4 py-2 text-white focus:border-blue-500 focus:outline-none"
-                                            >
-                                                <option value="">All Difficulties</option>
-                                                <option value="easy">Easy</option>
-                                                <option value="medium">Medium</option>
-                                                <option value="hard">Hard</option>
-                                            </select>
-                                        </div>
-                                        <div className="col-span-2">
-                                            <select
-                                                value={categoryFilter}
-                                                onChange={(e) => setCategoryFilter(e.target.value)}
-                                                className="w-full bg-[#1a1a1a] border border-[#333] rounded-lg px-4 py-2 text-white focus:border-blue-500 focus:outline-none"
-                                            >
-                                                <option value="">All Categories</option>
-                                                <option value="algorithms">Algorithms</option>
-                                                <option value="data-structures">Data Structures</option>
-                                                <option value="dynamic-programming">Dynamic Programming</option>
-                                                <option value="graph-theory">Graph Theory</option>
-                                                <option value="mathematics">Mathematics</option>
-                                                <option value="string-processing">String Processing</option>
-                                                <option value="sorting-searching">Sorting & Searching</option>
-                                            </select>
-                                        </div>
-                                        <div className="col-span-2">
-                                            <select
-                                                value={sortBy}
-                                                onChange={(e) => setSortBy(e.target.value)}
-                                                className="w-full bg-[#1a1a1a] border border-[#333] rounded-lg px-4 py-2 text-white focus:border-blue-500 focus:outline-none"
-                                            >
-                                                <option value="newest">Newest First</option>
-                                                <option value="oldest">Oldest First</option>
-                                                <option value="title">Title A-Z</option>
-                                                <option value="difficulty">Difficulty</option>
-                                            </select>
-                                        </div>
-                                    </div>
-
-                                    {/* Stats Cards */}
-                                    <div className="grid grid-cols-4 gap-4 mb-8">
-                                        <div className="bg-[#1a1a1a] rounded-lg border border-[#333] p-4">
-                                            <div className="text-gray-400 text-sm mb-1">Total Problems</div>
-                                            <div className="text-white text-2xl font-bold">{problemStats.total}</div>
-                                        </div>
-                                        <div className="bg-[#1a1a1a] rounded-lg border border-[#333] p-4">
-                                            <div className="text-gray-400 text-sm mb-1">Easy</div>
-                                            <div className="text-green-400 text-2xl font-bold">{problemStats.easy}</div>
-                                        </div>
-                                        <div className="bg-[#1a1a1a] rounded-lg border border-[#333] p-4">
-                                            <div className="text-gray-400 text-sm mb-1">Medium</div>
-                                            <div className="text-yellow-400 text-2xl font-bold">{problemStats.medium}</div>
-                                        </div>
-                                        <div className="bg-[#1a1a1a] rounded-lg border border-[#333] p-4">
-                                            <div className="text-gray-400 text-sm mb-1">Hard</div>
-                                            <div className="text-red-400 text-2xl font-bold">{problemStats.hard}</div>
-                                        </div>
-                                    </div>
-
-                                    {/* Problems List/Grid */}
-                                    <div className="space-y-4">
-                                        {isLoadingProblems ? (
-                                            <div className="text-center py-12 animate-in fade-in duration-300">
-                                                <div className="inline-flex items-center gap-2 text-gray-400">
-                                                    <RefreshCw className="w-4 h-4 animate-spin" />
-                                                    <span>Loading problems...</span>
-                                                </div>
-                                            </div>
-                                        ) : filteredProblems.length > 0 ? (
-                                            filteredProblems.map((problem, index) => {
-                                                const difficultyConfig = {
-                                                    easy: { color: 'text-green-400', bg: 'bg-green-900/50', border: 'border-green-600', emoji: '🟢' },
-                                                    medium: { color: 'text-yellow-400', bg: 'bg-yellow-900/50', border: 'border-yellow-600', emoji: '🟡' },
-                                                    hard: { color: 'text-red-400', bg: 'bg-red-900/50', border: 'border-red-600', emoji: '🔴' }
-                                                };
-                                                const diffConfig = difficultyConfig[problem.difficulty] || difficultyConfig.easy;
-                                                const difficultyLabel = problem.difficulty ?
-                                                    problem.difficulty.charAt(0).toUpperCase() + problem.difficulty.slice(1) : 'Easy';
-
-                                                // Ensure unique key by combining id with index as fallback
-                                                const uniqueKey = problem.id || `problem-${index}`;
-
-                                                return (
-                                                    <div
-                                                        key={uniqueKey}
-                                                        className="bg-[#1a1a1a] rounded-lg border border-[#333] p-6 hover:border-[#404040] hover:shadow-lg hover:shadow-black/20 transition-all duration-300 ease-out cursor-pointer transform hover:scale-[1.01] animate-in slide-in-from-bottom-6 fade-in"
-                                                        style={{
-                                                            animationDelay: `${index * 50}ms`,
-                                                            animationDuration: '500ms',
-                                                            animationFillMode: 'both'
-                                                        }}
-                                                        onClick={() => handleProblemClick(problem)}
+                                                    <button
+                                                        onClick={handleRefresh}
+                                                        disabled={githubProblems.loading || isLoadingProblems}
+                                                        className="flex items-center justify-center p-2 bg-[#1a1a1a] hover:bg-[#333] border border-[#404040] text-gray-400 hover:text-white rounded-lg transition-colors disabled:opacity-50"
+                                                        title={useGitHubData ? "Refresh Community Problems" : "Refresh CODEER Suggested Problems"}
                                                     >
-                                                        <div className="flex items-start justify-between">
-                                                            <div className="flex-1">
-                                                                <div className="flex items-center gap-3 mb-2">
-                                                                    <h3 className="text-white text-lg font-semibold">{problem.title || 'Untitled Problem'}</h3>
-                                                                    <span className={`px-2 py-1 ${diffConfig.bg} ${diffConfig.color} text-xs rounded-full border ${diffConfig.border}`}>
-                                                                        {diffConfig.emoji} {difficultyLabel}
-                                                                    </span>
-                                                                    <span className="px-2 py-1 bg-blue-900/50 text-blue-400 text-xs rounded-full border border-blue-600">
-                                                                        {problem.category || 'General'}
-                                                                    </span>
+                                                        <RefreshCw className={`w-4 h-4 ${(githubProblems.loading || isLoadingProblems) ? 'animate-spin' : ''}`} />
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            {/* Filter and Search */}
+                                            <div className="mb-6 grid grid-cols-12 gap-4">
+                                                <div className="col-span-6">
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Search problems..."
+                                                        value={searchQuery}
+                                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                                        className="w-full bg-[#1a1a1a] border border-[#333] rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none"
+                                                    />
+                                                </div>
+                                                <div className="col-span-2">
+                                                    <select
+                                                        value={difficultyFilter}
+                                                        onChange={(e) => setDifficultyFilter(e.target.value)}
+                                                        className="w-full bg-[#1a1a1a] border border-[#333] rounded-lg px-4 py-2 text-white focus:border-blue-500 focus:outline-none"
+                                                    >
+                                                        <option value="">All Difficulties</option>
+                                                        <option value="easy">Easy</option>
+                                                        <option value="medium">Medium</option>
+                                                        <option value="hard">Hard</option>
+                                                    </select>
+                                                </div>
+                                                <div className="col-span-2">
+                                                    <select
+                                                        value={categoryFilter}
+                                                        onChange={(e) => setCategoryFilter(e.target.value)}
+                                                        className="w-full bg-[#1a1a1a] border border-[#333] rounded-lg px-4 py-2 text-white focus:border-blue-500 focus:outline-none"
+                                                    >
+                                                        <option value="">All Categories</option>
+                                                        <option value="algorithms">Algorithms</option>
+                                                        <option value="data-structures">Data Structures</option>
+                                                        <option value="dynamic-programming">Dynamic Programming</option>
+                                                        <option value="graph-theory">Graph Theory</option>
+                                                        <option value="mathematics">Mathematics</option>
+                                                        <option value="string-processing">String Processing</option>
+                                                        <option value="sorting-searching">Sorting & Searching</option>
+                                                    </select>
+                                                </div>
+                                                <div className="col-span-2">
+                                                    <select
+                                                        value={sortBy}
+                                                        onChange={(e) => setSortBy(e.target.value)}
+                                                        className="w-full bg-[#1a1a1a] border border-[#333] rounded-lg px-4 py-2 text-white focus:border-blue-500 focus:outline-none"
+                                                    >
+                                                        <option value="newest">Newest First</option>
+                                                        <option value="oldest">Oldest First</option>
+                                                        <option value="title">Title A-Z</option>
+                                                        <option value="difficulty">Difficulty</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+
+                                            {/* Stats Cards */}
+                                            <div className="grid grid-cols-4 gap-4 mb-8">
+                                                <div className="bg-[#1a1a1a] rounded-lg border border-[#333] p-4">
+                                                    <div className="text-gray-400 text-sm mb-1">Total Problems</div>
+                                                    <div className="text-white text-2xl font-bold">{problemStats.total}</div>
+                                                </div>
+                                                <div className="bg-[#1a1a1a] rounded-lg border border-[#333] p-4">
+                                                    <div className="text-gray-400 text-sm mb-1">Easy</div>
+                                                    <div className="text-green-400 text-2xl font-bold">{problemStats.easy}</div>
+                                                </div>
+                                                <div className="bg-[#1a1a1a] rounded-lg border border-[#333] p-4">
+                                                    <div className="text-gray-400 text-sm mb-1">Medium</div>
+                                                    <div className="text-yellow-400 text-2xl font-bold">{problemStats.medium}</div>
+                                                </div>
+                                                <div className="bg-[#1a1a1a] rounded-lg border border-[#333] p-4">
+                                                    <div className="text-gray-400 text-sm mb-1">Hard</div>
+                                                    <div className="text-red-400 text-2xl font-bold">{problemStats.hard}</div>
+                                                </div>
+                                            </div>
+
+                                            {/* Problems List/Grid */}
+                                            <div className="space-y-4">
+                                                {isLoadingProblems ? (
+                                                    <div className="text-center py-12 animate-in fade-in duration-300">
+                                                        <div className="inline-flex items-center gap-2 text-gray-400">
+                                                            <RefreshCw className="w-4 h-4 animate-spin" />
+                                                            <span>Loading problems...</span>
+                                                        </div>
+                                                    </div>
+                                                ) : filteredProblems.length > 0 ? (
+                                                    filteredProblems.map((problem, index) => {
+                                                        const difficultyConfig = {
+                                                            easy: { color: 'text-green-400', bg: 'bg-green-900/50', border: 'border-green-600', emoji: '🟢' },
+                                                            medium: { color: 'text-yellow-400', bg: 'bg-yellow-900/50', border: 'border-yellow-600', emoji: '🟡' },
+                                                            hard: { color: 'text-red-400', bg: 'bg-red-900/50', border: 'border-red-600', emoji: '🔴' }
+                                                        };
+                                                        const diffConfig = difficultyConfig[problem.difficulty] || difficultyConfig.easy;
+                                                        const difficultyLabel = problem.difficulty ?
+                                                            problem.difficulty.charAt(0).toUpperCase() + problem.difficulty.slice(1) : 'Easy';
+
+                                                        // Ensure unique key by combining id with index as fallback
+                                                        const uniqueKey = problem.id || `problem-${index}`;
+
+                                                        return (
+                                                            <div
+                                                                key={uniqueKey}
+                                                                className="bg-[#1a1a1a] rounded-lg border border-[#333] p-6 hover:border-[#404040] hover:shadow-lg hover:shadow-black/20 transition-all duration-300 ease-out cursor-pointer transform hover:scale-[1.01] animate-in slide-in-from-bottom-6 fade-in"
+                                                                style={{
+                                                                    animationDelay: `${index * 50}ms`,
+                                                                    animationDuration: '500ms',
+                                                                    animationFillMode: 'both'
+                                                                }}
+                                                                onClick={() => handleProblemClick(problem)}
+                                                            >
+                                                                <div className="flex items-start justify-between">
+                                                                    <div className="flex-1">
+                                                                        <div className="flex items-center gap-3 mb-2">
+                                                                            <h3 className="text-white text-lg font-semibold">{problem.title || 'Untitled Problem'}</h3>
+                                                                            <span className={`px-2 py-1 ${diffConfig.bg} ${diffConfig.color} text-xs rounded-full border ${diffConfig.border}`}>
+                                                                                {diffConfig.emoji} {difficultyLabel}
+                                                                            </span>
+                                                                            <span className="px-2 py-1 bg-blue-900/50 text-blue-400 text-xs rounded-full border border-blue-600">
+                                                                                {problem.category || 'General'}
+                                                                            </span>
+                                                                        </div>
+                                                                        <p className="text-gray-400 text-sm mb-3 line-clamp-2">
+                                                                            {problem.description || 'No description available'}
+                                                                        </p>
+                                                                        <div className="flex items-center gap-4 text-xs text-gray-500">
+                                                                            {problem.tags && problem.tags.length > 0 && (
+                                                                                <>
+                                                                                    <span>Tags: {problem.tags.join(', ')}</span>
+                                                                                    <span>•</span>
+                                                                                </>
+                                                                            )}
+                                                                            <span>Created: {formatDate(problem.createdAt)}</span>
+                                                                            {problem.createdBy && (
+                                                                                <>
+                                                                                    <span>•</span>
+                                                                                    <span>created by {problem.createdBy}</span>
+                                                                                </>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
                                                                 </div>
-                                                                <p className="text-gray-400 text-sm mb-3 line-clamp-2">
-                                                                    {problem.description || 'No description available'}
-                                                                </p>
-                                                                <div className="flex items-center gap-4 text-xs text-gray-500">
-                                                                    {problem.tags && problem.tags.length > 0 && (
-                                                                        <>
-                                                                            <span>Tags: {problem.tags.join(', ')}</span>
-                                                                            <span>•</span>
-                                                                        </>
-                                                                    )}
-                                                                    <span>Created: {formatDate(problem.createdAt)}</span>
-                                                                    {problem.createdBy && (
-                                                                        <>
-                                                                            <span>•</span>
-                                                                            <span>created by {problem.createdBy}</span>
-                                                                        </>
-                                                                    )}
+                                                            </div>
+                                                        );
+                                                    })
+                                                ) : (
+                                                    /* Empty State */
+                                                    <div className="text-center py-12 bg-[#1a1a1a] rounded-lg border border-[#333]">
+                                                        <Brain className="w-16 h-16 text-gray-500 mx-auto mb-4" />
+                                                        <div className="text-gray-400 text-xl mb-2">
+                                                            {searchQuery || difficultyFilter || categoryFilter ? 'No Problems Found' : 'No Problems Yet'}
+                                                        </div>
+                                                        <div className="text-gray-500 mb-4">
+                                                            {searchQuery || difficultyFilter || categoryFilter
+                                                                ? 'Try adjusting your search or filters to find problems'
+                                                                : 'Start creating coding challenges to build your collection'
+                                                            }
+                                                        </div>
+                                                        {!(searchQuery || difficultyFilter || categoryFilter) && (
+                                                            <button
+                                                                onClick={() => setProblemPageMode('add')}
+                                                                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors mx-auto"
+                                                            >
+                                                                <Plus className="w-4 h-4" />
+                                                                Create Your First Problem
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Add Problem Mode Content */}
+                                    {problemPageMode === 'add' && (
+                                        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                            <div className="grid grid-cols-12 gap-6">
+                                                {/* Main Form */}
+                                                <div className="col-span-8 space-y-6">
+                                                    {/* Basic Info */}
+                                                    <div className="bg-[#1a1a1a] rounded-xl border border-[#333] p-6">
+                                                        <h2 className="text-white text-xl font-semibold mb-4">Basic Information</h2>
+
+                                                        <div className="space-y-4">
+                                                            <div>
+                                                                <label className="block text-gray-300 text-sm font-medium mb-2">Problem Title</label>
+                                                                <input
+                                                                    type="text"
+                                                                    value={problemForm.title}
+                                                                    onChange={(e) => setProblemForm({ ...problemForm, title: e.target.value })}
+                                                                    placeholder="Enter problem title..."
+                                                                    className="w-full bg-[#111] border border-[#333] rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none"
+                                                                />
+                                                            </div>
+
+                                                            <div>
+                                                                <label className="block text-gray-300 text-sm font-medium mb-2">Description</label>
+                                                                <textarea
+                                                                    value={problemForm.description}
+                                                                    onChange={(e) => setProblemForm({ ...problemForm, description: e.target.value })}
+                                                                    placeholder="Describe the problem in detail..."
+                                                                    rows={6}
+                                                                    className="w-full bg-[#111] border border-[#333] rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none resize-none"
+                                                                />
+                                                            </div>
+
+                                                            <div className="grid grid-cols-2 gap-4">
+                                                                <div>
+                                                                    <label className="block text-gray-300 text-sm font-medium mb-2">Difficulty</label>
+                                                                    <select
+                                                                        value={problemForm.difficulty}
+                                                                        onChange={(e) => setProblemForm({ ...problemForm, difficulty: e.target.value })}
+                                                                        className="w-full bg-[#111] border border-[#333] rounded-lg px-4 py-3 text-white focus:border-blue-500 focus:outline-none"
+                                                                    >
+                                                                        <option value="easy">Easy</option>
+                                                                        <option value="medium">Medium</option>
+                                                                        <option value="hard">Hard</option>
+                                                                    </select>
+                                                                </div>
+                                                                <div>
+                                                                    <label className="block text-gray-300 text-sm font-medium mb-2">Category</label>
+                                                                    <select
+                                                                        value={problemForm.category}
+                                                                        onChange={(e) => setProblemForm({ ...problemForm, category: e.target.value })}
+                                                                        className="w-full bg-[#111] border border-[#333] rounded-lg px-4 py-3 text-white focus:border-blue-500 focus:outline-none"
+                                                                    >
+                                                                        <option value="algorithms">Algorithms</option>
+                                                                        <option value="data-structures">Data Structures</option>
+                                                                        <option value="dynamic-programming">Dynamic Programming</option>
+                                                                        <option value="math">Mathematics</option>
+                                                                        <option value="strings">Strings</option>
+                                                                        <option value="arrays">Arrays</option>
+                                                                        <option value="graphs">Graphs</option>
+                                                                        <option value="trees">Trees</option>
+                                                                    </select>
                                                                 </div>
                                                             </div>
                                                         </div>
                                                     </div>
-                                                );
-                                            })
-                                        ) : (
-                                            /* Empty State */
-                                            <div className="text-center py-12 bg-[#1a1a1a] rounded-lg border border-[#333]">
-                                                <Brain className="w-16 h-16 text-gray-500 mx-auto mb-4" />
-                                                <div className="text-gray-400 text-xl mb-2">
-                                                    {searchQuery || difficultyFilter || categoryFilter ? 'No Problems Found' : 'No Problems Yet'}
+
+                                                    {/* Format Specifications */}
+                                                    <div className="bg-[#1a1a1a] rounded-xl border border-[#333] p-6">
+                                                        <h2 className="text-white text-xl font-semibold mb-4">Input/Output Format</h2>
+
+                                                        <div className="grid grid-cols-2 gap-4">
+                                                            <div>
+                                                                <label className="block text-gray-300 text-sm font-medium mb-2">Input Format</label>
+                                                                <textarea
+                                                                    value={problemForm.inputFormat}
+                                                                    onChange={(e) => setProblemForm({ ...problemForm, inputFormat: e.target.value })}
+                                                                    placeholder="Describe the input format..."
+                                                                    rows={4}
+                                                                    className="w-full bg-[#111] border border-[#333] rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none resize-none"
+                                                                />
+                                                            </div>
+                                                            <div>
+                                                                <label className="block text-gray-300 text-sm font-medium mb-2">Output Format</label>
+                                                                <textarea
+                                                                    value={problemForm.outputFormat}
+                                                                    onChange={(e) => setProblemForm({ ...problemForm, outputFormat: e.target.value })}
+                                                                    placeholder="Describe the output format..."
+                                                                    rows={4}
+                                                                    className="w-full bg-[#111] border border-[#333] rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none resize-none"
+                                                                />
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="mt-4">
+                                                            <label className="block text-gray-300 text-sm font-medium mb-2">Constraints</label>
+                                                            <textarea
+                                                                value={problemForm.constraints}
+                                                                onChange={(e) => setProblemForm({ ...problemForm, constraints: e.target.value })}
+                                                                placeholder="List the problem constraints..."
+                                                                rows={3}
+                                                                className="w-full bg-[#111] border border-[#333] rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none resize-none"
+                                                            />
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Examples */}
+                                                    <div className="bg-[#1a1a1a] rounded-xl border border-[#333] p-6">
+                                                        <div className="flex items-center justify-between mb-4">
+                                                            <h2 className="text-white text-xl font-semibold">Examples</h2>
+                                                            <button
+                                                                onClick={() => setProblemForm({
+                                                                    ...problemForm,
+                                                                    examples: [...problemForm.examples, { input: "", output: "", explanation: "" }]
+                                                                })}
+                                                                className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm transition-colors"
+                                                            >
+                                                                Add Example
+                                                            </button>
+                                                        </div>
+
+                                                        {problemForm.examples.map((example, index) => (
+                                                            <div key={index} className="mb-6 p-4 bg-[#111] rounded-lg border border-[#333]">
+                                                                <div className="flex items-center justify-between mb-3">
+                                                                    <h4 className="text-gray-300 font-medium">Example {index + 1}</h4>
+                                                                    {problemForm.examples.length > 1 && (
+                                                                        <button
+                                                                            onClick={() => setProblemForm({
+                                                                                ...problemForm,
+                                                                                examples: problemForm.examples.filter((_, i) => i !== index)
+                                                                            })}
+                                                                            className="text-red-400 hover:text-red-300 text-sm"
+                                                                        >
+                                                                            Remove
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                                <div className="grid grid-cols-2 gap-4 mb-3">
+                                                                    <div>
+                                                                        <label className="block text-gray-400 text-sm mb-1">Input</label>
+                                                                        <textarea
+                                                                            value={example.input}
+                                                                            onChange={(e) => {
+                                                                                const newExamples = [...problemForm.examples];
+                                                                                newExamples[index].input = e.target.value;
+                                                                                setProblemForm({ ...problemForm, examples: newExamples });
+                                                                            }}
+                                                                            placeholder="Example input..."
+                                                                            rows={3}
+                                                                            className="w-full bg-[#1a1a1a] border border-[#333] rounded px-3 py-2 text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none resize-none"
+                                                                        />
+                                                                    </div>
+                                                                    <div>
+                                                                        <label className="block text-gray-400 text-sm mb-1">Output</label>
+                                                                        <textarea
+                                                                            value={example.output}
+                                                                            onChange={(e) => {
+                                                                                const newExamples = [...problemForm.examples];
+                                                                                newExamples[index].output = e.target.value;
+                                                                                setProblemForm({ ...problemForm, examples: newExamples });
+                                                                            }}
+                                                                            placeholder="Expected output..."
+                                                                            rows={3}
+                                                                            className="w-full bg-[#1a1a1a] border border-[#333] rounded px-3 py-2 text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none resize-none"
+                                                                        />
+                                                                    </div>
+                                                                </div>
+                                                                <div>
+                                                                    <label className="block text-gray-400 text-sm mb-1">Explanation (Optional)</label>
+                                                                    <textarea
+                                                                        value={example.explanation}
+                                                                        onChange={(e) => {
+                                                                            const newExamples = [...problemForm.examples];
+                                                                            newExamples[index].explanation = e.target.value;
+                                                                            setProblemForm({ ...problemForm, examples: newExamples });
+                                                                        }}
+                                                                        placeholder="Explain this example..."
+                                                                        rows={2}
+                                                                        className="w-full bg-[#1a1a1a] border border-[#333] rounded px-3 py-2 text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none resize-none"
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+
+                                                    {/* Final Answer */}
+                                                    <div className="bg-[#1a1a1a] rounded-xl border border-[#333] p-6">
+                                                        <h2 className="text-white text-xl font-semibold mb-4">Final Answer</h2>
+                                                        <div className="mb-2">
+                                                            <label className="block text-gray-300 text-sm font-medium mb-2">Solution</label>
+                                                            <textarea
+                                                                value={problemForm.finalAnswer}
+                                                                onChange={(e) => setProblemForm({ ...problemForm, finalAnswer: e.target.value })}
+                                                                placeholder="Explain the solution approach, algorithm, or provide the complete answer..."
+                                                                rows={8}
+                                                                className="w-full bg-[#111] border border-[#333] rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none resize-none"
+                                                            />
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                                <div className="text-gray-500 mb-4">
-                                                    {searchQuery || difficultyFilter || categoryFilter
-                                                        ? 'Try adjusting your search or filters to find problems'
-                                                        : 'Start creating coding challenges to build your collection'
-                                                    }
+
+                                                {/* Sidebar */}
+                                                <div className="col-span-4 space-y-6">
+                                                    {/* Settings */}
+                                                    <div className="bg-[#1a1a1a] rounded-xl border border-[#333] p-6">
+                                                        <h2 className="text-white text-xl font-semibold mb-4">Settings</h2>
+
+                                                        <div>
+                                                            <label className="block text-gray-300 text-sm font-medium mb-2">Tags (comma-separated)</label>
+                                                            <input
+                                                                type="text"
+                                                                value={problemForm.tags}
+                                                                onChange={(e) => setProblemForm({ ...problemForm, tags: e.target.value })}
+                                                                placeholder="array, sorting, binary-search"
+                                                                className="w-full bg-[#111] border border-[#333] rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none"
+                                                            />
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Actions */}
+                                                    <div className="bg-[#1a1a1a] rounded-xl border border-[#333] p-6">
+                                                        <h2 className="text-white text-xl font-semibold mb-4">Actions</h2>
+
+                                                        <div className="space-y-3">
+                                                            <button
+                                                                onClick={handleSaveProblem}
+                                                                disabled={isSaving || !problemForm.title.trim()}
+                                                                className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-colors ${isSaving || !problemForm.title.trim()
+                                                                    ? 'bg-gray-600 cursor-not-allowed'
+                                                                    : saveStatus === 'success'
+                                                                        ? 'bg-green-600 hover:bg-green-700'
+                                                                        : saveStatus === 'error'
+                                                                            ? 'bg-red-600 hover:bg-red-700'
+                                                                            : 'bg-blue-600 hover:bg-blue-700'
+                                                                    } text-white`}
+                                                            >
+                                                                <Save className="w-4 h-4" />
+                                                                {isSaving ? 'Saving...' : saveStatus === 'success' ? 'Saved!' : saveStatus === 'error' ? 'Failed!' : 'Save Problem'}
+                                                            </button>
+
+                                                            <button
+                                                                onClick={() => {
+                                                                    console.log('Save as draft clicked');
+                                                                }}
+                                                                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
+                                                            >
+                                                                Save as Draft
+                                                            </button>
+
+                                                            <button
+                                                                onClick={() => {
+                                                                    setProblemForm({
+                                                                        title: "",
+                                                                        description: "",
+                                                                        difficulty: "easy",
+                                                                        category: "algorithms",
+                                                                        inputFormat: "",
+                                                                        outputFormat: "",
+                                                                        constraints: "",
+                                                                        examples: [{ input: "", output: "", explanation: "" }],
+                                                                        tags: "",
+                                                                        finalAnswer: ""
+                                                                    });
+                                                                }}
+                                                                disabled={isSaving}
+                                                                className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-colors ${isSaving
+                                                                    ? 'bg-gray-600 cursor-not-allowed'
+                                                                    : 'bg-red-600 hover:bg-red-700'
+                                                                    } text-white`}
+                                                            >
+                                                                <X className="w-4 h-4" />
+                                                                Reset Form
+                                                            </button>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Preview */}
+                                                    <div className="bg-[#1a1a1a] rounded-xl border border-[#333] p-6">
+                                                        <h2 className="text-white text-xl font-semibold mb-4">Preview</h2>
+                                                        <div className="text-sm text-gray-400 space-y-2">
+                                                            <div><strong>Title:</strong> {problemForm.title || 'No title'}</div>
+                                                            <div><strong>Difficulty:</strong> {problemForm.difficulty}</div>
+                                                            <div><strong>Category:</strong> {problemForm.category}</div>
+                                                            <div><strong>Examples:</strong> {problemForm.examples.length}</div>
+                                                            <div><strong>Tags:</strong> {problemForm.tags || 'No tags'}</div>
+                                                            <div><strong>Solution:</strong> {problemForm.finalAnswer ? 'Provided' : 'Missing'}</div>
+                                                        </div>
+
+                                                        {/* Save Status */}
+                                                        {saveStatus !== 'idle' && (
+                                                            <div className={`mt-4 p-3 rounded-lg text-sm ${saveStatus === 'success'
+                                                                ? 'bg-green-900/50 border border-green-600 text-green-300'
+                                                                : 'bg-red-900/50 border border-red-600 text-red-300'
+                                                                }`}>
+                                                                {saveStatus === 'success'
+                                                                    ? '✅ Problem saved to GitHub successfully! A pull request has been automatically created to contribute your problem to the main CODEER repository.'
+                                                                    : '❌ Failed to save problem. Please try again.'
+                                                                }
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </div>
-                                                {!(searchQuery || difficultyFilter || categoryFilter) && (
-                                                    <button
-                                                        onClick={() => {
-                                                            setActiveQuickCreateTab("problem");
-                                                            setActiveTab(null);
-                                                        }}
-                                                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors mx-auto"
-                                                    >
-                                                        <Plus className="w-4 h-4" />
-                                                        Create Your First Problem
-                                                    </button>
-                                                )}
                                             </div>
-                                        )}
-                                    </div>
+                                        </div>
+                                    )}
+
+                                    {/* Manage Mode Content */}
+                                    {problemPageMode === 'manage' && (
+                                        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                            <div className="max-w-4xl mx-auto">
+                                                {/* Header */}
+                                                <div className="text-center mb-8">
+                                                    <div className="flex items-center justify-center gap-3 mb-4">
+                                                        <Github className="w-8 h-8 text-blue-400" />
+                                                        <h2 className="text-white text-2xl font-bold">Manage Your Problems</h2>
+                                                    </div>
+                                                    <p className="text-gray-400">Edit your problems directly in your forked GitHub repository</p>
+                                                </div>
+
+                                                {/* Repository Card */}
+                                                <div className="bg-[#1a1a1a] rounded-xl border border-[#333] p-8 mb-6">
+                                                    <div className="text-center">
+                                                        <div className="w-16 h-16 bg-[#333] rounded-full flex items-center justify-center mx-auto mb-4">
+                                                            <Github className="w-8 h-8 text-white" />
+                                                        </div>
+
+                                                        <h3 className="text-white text-xl font-semibold mb-2">
+                                                            sriox-cloud/codeer_problems
+                                                        </h3>
+                                                        <p className="text-gray-400 mb-6">
+                                                            Main repository containing all community problems
+                                                        </p>
+
+                                                        {/* Edit Button */}
+                                                        <button
+                                                            onClick={() => {
+                                                                const repoUrl = 'https://github.com/sriox-cloud/codeer_problems';
+                                                                window.open(repoUrl, '_blank');
+                                                            }}
+                                                            className="inline-flex items-center gap-3 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+                                                        >
+                                                            <Edit className="w-5 h-5" />
+                                                            Edit Problems in GitHub
+                                                            <ExternalLink className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                {/* Instructions Card */}
+                                                <div className="bg-[#1a1a1a] rounded-xl border border-[#333] p-6">
+                                                    <div className="flex items-start gap-4">
+                                                        <div className="w-8 h-8 bg-blue-900/50 rounded-lg flex items-center justify-center flex-shrink-0 mt-1">
+                                                            <Info className="w-4 h-4 text-blue-400" />
+                                                        </div>
+                                                        <div className="flex-1">
+                                                            <h4 className="text-white font-semibold mb-3">How to Edit Problems</h4>
+                                                            <div className="space-y-3 text-gray-300 text-sm">
+                                                                <div className="flex items-start gap-3">
+                                                                    <span className="w-6 h-6 bg-[#333] rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0">1</span>
+                                                                    <div>
+                                                                        <strong>Navigate to the repository:</strong> Click the "Edit Problems in GitHub" button above to open the main codeer_problems repository.
+                                                                    </div>
+                                                                </div>
+
+                                                                <div className="flex items-start gap-3">
+                                                                    <span className="w-6 h-6 bg-[#333] rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0">2</span>
+                                                                    <div>
+                                                                        <strong>Fork the repository:</strong> Click the "Fork" button in the top-right corner of the GitHub page to create your own copy.
+                                                                    </div>
+                                                                </div>
+
+                                                                <div className="flex items-start gap-3">
+                                                                    <span className="w-6 h-6 bg-[#333] rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0">3</span>
+                                                                    <div>
+                                                                        <strong>Navigate to problems folder:</strong> In your forked repository, go to the <code className="bg-[#333] px-1 py-0.5 rounded text-xs">problems/</code> directory.
+                                                                    </div>
+                                                                </div>
+
+                                                                <div className="flex items-start gap-3">
+                                                                    <span className="w-6 h-6 bg-[#333] rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0">4</span>
+                                                                    <div>
+                                                                        <strong>Add or edit problems:</strong> Create new problem files or edit existing ones using GitHub's online editor.
+                                                                    </div>
+                                                                </div>
+
+                                                                <div className="flex items-start gap-3">
+                                                                    <span className="w-6 h-6 bg-[#333] rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0">5</span>
+                                                                    <div>
+                                                                        <strong>Commit and create PR:</strong> Commit your changes and create a pull request to merge them back to the main repository.
+                                                                    </div>
+                                                                </div>
+                                                            </div>                                                            <div className="mt-4 p-4 bg-yellow-900/20 border border-yellow-600/30 rounded-lg">
+                                                                <div className="flex items-start gap-2">
+                                                                    <div className="w-4 h-4 text-yellow-400 flex-shrink-0 mt-0.5">💡</div>
+                                                                    <div className="text-yellow-300 text-sm">
+                                                                        <strong>Tip:</strong> Fork the repository first, then work on your own copy. Your contributions will be reviewed and merged into the main repository through pull requests.
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* Quick Actions */}
+                                                <div className="grid grid-cols-2 gap-4 mt-6">
+                                                    <div className="bg-[#1a1a1a] rounded-lg border border-[#333] p-4">
+                                                        <div className="flex items-center gap-3 mb-2">
+                                                            <FileText className="w-5 h-5 text-green-400" />
+                                                            <h5 className="text-white font-medium">Create New Problem</h5>
+                                                        </div>
+                                                        <p className="text-gray-400 text-sm mb-3">Add a new problem to your repository</p>
+                                                        <button
+                                                            onClick={() => setProblemPageMode('add')}
+                                                            className="text-green-400 hover:text-green-300 text-sm font-medium transition-colors"
+                                                        >
+                                                            Go to Add Problem →
+                                                        </button>
+                                                    </div>
+
+                                                    <div className="bg-[#1a1a1a] rounded-lg border border-[#333] p-4">
+                                                        <div className="flex items-center gap-3 mb-2">
+                                                            <Eye className="w-5 h-5 text-blue-400" />
+                                                            <h5 className="text-white font-medium">Browse Problems</h5>
+                                                        </div>
+                                                        <p className="text-gray-400 text-sm mb-3">View all community problems</p>
+                                                        <button
+                                                            onClick={() => setProblemPageMode('browse')}
+                                                            className="text-blue-400 hover:text-blue-300 text-sm font-medium transition-colors"
+                                                        >
+                                                            Go to Browse →
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         )}
