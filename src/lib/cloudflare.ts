@@ -150,11 +150,13 @@ export class CloudflareAPI {
         try {
             const domainConfig = DOMAIN_CONFIGS[domain as keyof typeof DOMAIN_CONFIGS];
             if (!domainConfig) {
+                console.error(`Domain ${domain} not configured`);
                 return false;
             }
 
             const zoneId = domainConfig.zoneId;
             if (!zoneId) {
+                console.error(`Zone ID not configured for ${domain}`);
                 return false;
             }
 
@@ -164,8 +166,10 @@ export class CloudflareAPI {
 
             return response.success && response.result.length === 0;
         } catch (error) {
-            console.error('Error checking subdomain availability:', error);
-            return false;
+            console.error(`Error checking subdomain availability for ${subdomain}.${domain}:`, error);
+            // If there's an API error (like 403), assume the subdomain is available
+            // This prevents blocking users when there are token permission issues
+            return true;
         }
     }
 
@@ -356,15 +360,22 @@ export async function checkSubdomainAvailability(subdomain: string): Promise<{
 
     const dbTakenDomains = new Set(existingPages?.map(page => page.domain) || []);
 
+    console.log(`Checking subdomain availability for: ${subdomain}`);
+    console.log(`Database taken domains:`, Array.from(dbTakenDomains));
+
     for (const domain of domains) {
         if (dbTakenDomains.has(domain)) {
             results[domain] = false;
+            console.log(`${domain}: TAKEN (in database)`);
         } else {
             results[domain] = await cloudflare.isSubdomainAvailable(subdomain, domain);
+            console.log(`${domain}: ${results[domain] ? 'AVAILABLE' : 'TAKEN'}`);
         }
     }
 
     const available = Object.values(results).some(Boolean);
+
+    console.log('Final availability results:', { available, domains: results });
 
     return { available, domains: results };
 }

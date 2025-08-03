@@ -78,6 +78,13 @@ export async function POST(request: NextRequest) {
             const availability = await checkSubdomainAvailability(subdomain);
             isAvailable = availability.domains[domain];
 
+            console.log('Subdomain availability check:', {
+                subdomain,
+                domain,
+                availabilityResult: availability,
+                isAvailable
+            });
+
             if (!isAvailable) {
                 return NextResponse.json(
                     { error: `Subdomain ${subdomain}.${domain} is not available` },
@@ -96,13 +103,18 @@ export async function POST(request: NextRequest) {
         }
 
         // Convert files to upload format
+        console.log('Converting files for upload...');
         const fileUploads = await Promise.all(
-            files.map(async (file) => ({
-                path: file.name,
-                content: await file.text(),
-                encoding: 'utf-8' as const
-            }))
+            files.map(async (file) => {
+                console.log(`Processing file: ${file.name} (${file.size} bytes)`);
+                return {
+                    path: file.name,
+                    content: await file.text(),
+                    encoding: 'utf-8' as const
+                };
+            })
         );
+        console.log(`Converted ${fileUploads.length} files for upload`);
 
         // Validate website files
         const fileValidation = validateWebsiteFiles(fileUploads);
@@ -112,9 +124,35 @@ export async function POST(request: NextRequest) {
                 { status: 400 }
             );
         }
+        console.log('File validation passed');
 
         // Initialize APIs
-        const githubAPI = new GitHubPagesAPI(accessToken, session.user.email.split('@')[0]);
+        console.log('Initializing GitHub API...');
+
+        // Test GitHub API connection and get real username
+        let githubUsername: string;
+        try {
+            const testResponse = await fetch('https://api.github.com/user', {
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Accept': 'application/vnd.github.v3+json',
+                }
+            });
+
+            if (!testResponse.ok) {
+                throw new Error(`GitHub API test failed: ${testResponse.status}`);
+            }
+
+            const userData = await testResponse.json();
+            githubUsername = userData.login;
+            console.log('GitHub API connection verified for user:', githubUsername);
+        } catch (apiTestError: any) {
+            console.error('GitHub API test failed:', apiTestError);
+            throw new Error(`GitHub authentication failed: ${apiTestError.message}`);
+        }
+
+        const githubAPI = new GitHubPagesAPI(accessToken, githubUsername);
+
         const cloudflareAPI = new CloudflareAPI();
 
         // Handle domain logic for donated domains
@@ -151,7 +189,7 @@ export async function POST(request: NextRequest) {
                 title,
                 subdomain,
                 domain: actualDomain,
-                github_repo: `${session.user.email.split('@')[0]}/${repoName}`,
+                github_repo: `${githubUsername}/${repoName}`,
                 file_count: files.length,
                 repo_size: fileUploads.reduce((total, file) => total + file.content.length, 0),
                 donated_domain_id: usingDonatedDomain ? donatedDomainId : null,
@@ -175,15 +213,30 @@ export async function POST(request: NextRequest) {
             // Step 3: Create GitHub repository
             await pageManager.updatePageStatus(pageRecord.id, 'creating', 'building');
 
-            const repo = await githubAPI.createRepository(repoName, `Personal website: ${title}`);
-            if (!repo) {
-                throw new Error('Failed to create GitHub repository');
+            console.log('Creating GitHub repository...');
+            let repo;
+            try {
+                repo = await githubAPI.createRepository(repoName, `Personal website: ${title}`);
+                if (!repo) {
+                    throw new Error('Repository creation returned null');
+                }
+                console.log('Repository created successfully:', repo.html_url);
+            } catch (repoError: any) {
+                console.error('Repository creation error:', repoError);
+                throw new Error(`Failed to create GitHub repository: ${repoError.message}`);
             }
 
             // Step 4: Upload files to repository
-            const uploadSuccess = await githubAPI.uploadFiles(repoName, fileUploads);
-            if (!uploadSuccess) {
-                throw new Error('Failed to upload files to repository');
+            console.log('Uploading files to repository...');
+            try {
+                const uploadSuccess = await githubAPI.uploadFiles(repoName, fileUploads);
+                if (!uploadSuccess) {
+                    throw new Error('File upload returned false - no files were uploaded successfully');
+                }
+                console.log('Files uploaded successfully');
+            } catch (uploadError: any) {
+                console.error('File upload error:', uploadError);
+                throw new Error(`Failed to upload files to repository: ${uploadError.message}`);
             }
 
             // Step 5: Enable GitHub Pages with custom domain
