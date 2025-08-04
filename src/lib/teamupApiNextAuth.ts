@@ -275,23 +275,39 @@ export const getTeamupPostById = async (id: string): Promise<TeamupPost | null> 
 // Applications API Functions
 export const createApplication = async (formData: ApplicationFormData, userEmail: string, userName?: string, userAvatar?: string): Promise<TeamApplication> => {
     try {
+        console.log('Creating application with data:', {
+            formData,
+            userEmail,
+            userName,
+            userAvatar
+        });
+
         const user = await ensureUserExists(userEmail, userName, userAvatar)
+        console.log('User ensured:', user);
+
+        const applicationData = {
+            teamup_post_id: formData.teamupPostId,
+            applicant_id: user.id,
+            role: formData.role,
+            experience: formData.experience,
+            portfolio: formData.portfolio,
+            motivation: formData.motivation,
+            availability: formData.availability
+        };
+        console.log('Application data to insert:', applicationData);
 
         const { data, error } = await supabase
             .from('team_applications')
-            .insert({
-                teamup_post_id: formData.teamupPostId,
-                applicant_id: user.id,
-                role: formData.role,
-                experience: formData.experience,
-                portfolio: formData.portfolio,
-                motivation: formData.motivation,
-                availability: formData.availability
-            })
+            .insert(applicationData)
             .select()
             .single()
 
-        if (error) throw error
+        if (error) {
+            console.error('Supabase error creating application:', error);
+            throw error;
+        }
+
+        console.log('Application created successfully:', data);
         return data
     } catch (error) {
         console.error('Error creating application:', error)
