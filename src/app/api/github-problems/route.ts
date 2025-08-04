@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
 interface GitHubFile {
     name: string;
@@ -33,6 +35,13 @@ const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
 
 export async function GET(request: NextRequest) {
     try {
+        // Get user session to access their GitHub token
+        const session = await getServerSession(authOptions);
+        const userAccessToken = (session as any)?.accessToken;
+
+        console.log('🔐 User session check:', session?.user?.email ? 'Authenticated' : 'Not authenticated');
+        console.log('🎫 Access token available:', userAccessToken ? 'Yes' : 'No');
+
         const { searchParams } = new URL(request.url);
         const forceRefresh = searchParams.has('refresh'); // Check if refresh parameter is present
 
@@ -56,7 +65,8 @@ export async function GET(request: NextRequest) {
         console.log('🔄 Fetching fresh problems from GitHub...');
 
         // Hybrid approach: Try GitHub API first (minimal usage), then fallback to scraping
-        const problems = await fetchWithHybridApproach();
+        // Pass the user's access token for authenticated requests
+        const problems = await fetchWithHybridApproach(userAccessToken);
 
         // Update cache
         cachedProblems = problems;
@@ -95,11 +105,11 @@ export async function GET(request: NextRequest) {
 }
 
 // Hybrid fetching approach: API first, then scraping fallback
-async function fetchWithHybridApproach(): Promise<GitHubProblem[]> {
+async function fetchWithHybridApproach(userAccessToken?: string): Promise<GitHubProblem[]> {
     console.log('🔄 Starting hybrid fetch approach...');
 
     // Try GitHub API first (minimal usage)
-    const apiProblems = await tryGitHubAPI();
+    const apiProblems = await tryGitHubAPI(userAccessToken);
     if (apiProblems.length > 0) {
         console.log(`✅ GitHub API successful: ${apiProblems.length} problems`);
         return apiProblems;
@@ -111,20 +121,24 @@ async function fetchWithHybridApproach(): Promise<GitHubProblem[]> {
 }
 
 // Method 1: GitHub API (minimal usage - only 1 API call)
-async function tryGitHubAPI(): Promise<GitHubProblem[]> {
+async function tryGitHubAPI(userAccessToken?: string): Promise<GitHubProblem[]> {
     try {
         console.log('🔑 Attempting GitHub API...');
 
         // Single API call to get the contents of the problems directory
         const apiUrl = 'https://api.github.com/repos/sriox-cloud/codeer_problems/contents/problems';
 
+        // Determine which token to use - prioritize user's token, then fallback to app token
+        const authToken = userAccessToken || process.env.GITHUB_TOKEN;
+        console.log('🎫 Using token type:', userAccessToken ? 'User OAuth token' : 'App token');
+
         const response = await fetch(apiUrl, {
             headers: {
                 'User-Agent': 'codeer-problems-fetcher',
                 'Accept': 'application/vnd.github.v3+json',
-                // Add auth header if available in environment
-                ...(process.env.GITHUB_TOKEN && {
-                    'Authorization': `token ${process.env.GITHUB_TOKEN}`
+                // Add auth header if any token is available
+                ...(authToken && {
+                    'Authorization': `token ${authToken}`
                 })
             }
         });

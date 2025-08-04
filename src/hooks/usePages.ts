@@ -50,7 +50,7 @@ export function useUserPages() {
         setError(null);
 
         try {
-            const response = await fetch('/api/pages/create');
+            const response = await fetch('/api/pages');
 
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);

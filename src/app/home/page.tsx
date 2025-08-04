@@ -2112,17 +2112,84 @@ export default function HomePage() {
                                                     <p className="text-gray-400">Edit and update your existing websites</p>
                                                 </div>
 
-                                                <div className="text-center py-12">
-                                                    <FileText className="w-16 h-16 text-gray-500 mx-auto mb-4" />
-                                                    <div className="text-gray-400 text-lg mb-2">No pages created yet</div>
-                                                    <div className="text-gray-500 mb-4">Create your first page to get started</div>
-                                                    <button
-                                                        onClick={() => setPagesActiveTab('create')}
-                                                        className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
-                                                    >
-                                                        Create Your First Page
-                                                    </button>
-                                                </div>
+                                                {isLoadingPages ? (
+                                                    <div className="text-center py-12">
+                                                        <div className="text-gray-400 text-lg">Loading your pages...</div>
+                                                    </div>
+                                                ) : pagesError ? (
+                                                    <div className="text-center py-12">
+                                                        <div className="text-red-400 text-lg mb-2">Error loading pages</div>
+                                                        <div className="text-gray-500 mb-4">{pagesError}</div>
+                                                        <button
+                                                            onClick={refreshPages}
+                                                            className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+                                                        >
+                                                            Try Again
+                                                        </button>
+                                                    </div>
+                                                ) : userPages && userPages.length > 0 ? (
+                                                    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                                                        {userPages.map((page) => (
+                                                            <div key={page.id} className="bg-[#1a1a1a] border border-[#333] rounded-lg p-6 hover:border-[#444] transition-colors">
+                                                                <div className="flex items-start justify-between mb-4">
+                                                                    <div>
+                                                                        <h3 className="text-white font-semibold text-lg mb-1">{page.title}</h3>
+                                                                        <p className="text-gray-400 text-sm">{page.domain}</p>
+                                                                    </div>
+                                                                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${page.status === 'active' ? 'bg-green-900 text-green-300' :
+                                                                            page.status === 'creating' ? 'bg-yellow-900 text-yellow-300' :
+                                                                                page.status === 'error' ? 'bg-red-900 text-red-300' :
+                                                                                    'bg-gray-900 text-gray-300'
+                                                                        }`}>
+                                                                        {page.status}
+                                                                    </span>
+                                                                </div>
+
+                                                                <div className="space-y-2 mb-4">
+                                                                    <div className="flex items-center text-sm text-gray-400">
+                                                                        <FileText className="w-4 h-4 mr-2" />
+                                                                        {page.file_count} files
+                                                                    </div>
+                                                                    <div className="flex items-center text-sm text-gray-400">
+                                                                        <Calendar className="w-4 h-4 mr-2" />
+                                                                        Created {new Date(page.created_at).toLocaleDateString()}
+                                                                    </div>
+                                                                </div>
+
+                                                                <div className="flex gap-2">
+                                                                    <a
+                                                                        href={page.custom_url}
+                                                                        target="_blank"
+                                                                        rel="noopener noreferrer"
+                                                                        className="flex-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition-colors text-center"
+                                                                    >
+                                                                        Visit Site
+                                                                    </a>
+                                                                    <a
+                                                                        href={`https://github.com/${page.github_repo}`}
+                                                                        target="_blank"
+                                                                        rel="noopener noreferrer"
+                                                                        className="px-3 py-2 bg-[#333] hover:bg-[#444] text-white text-sm font-medium rounded-md transition-colors"
+                                                                    >
+                                                                        GitHub
+                                                                    </a>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <div className="text-center py-12">
+                                                        <FileText className="w-16 h-16 text-gray-500 mx-auto mb-4" />
+                                                        <div className="text-gray-400 text-lg mb-2">No pages created yet</div>
+                                                        <div className="text-gray-500 mb-4">Create your first page to get started</div>
+                                                        <button
+                                                            onClick={() => setPagesActiveTab('create')}
+                                                            className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+                                                        >
+                                                            Create Your First Page
+                                                        </button>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     )}
