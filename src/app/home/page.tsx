@@ -97,6 +97,11 @@ export default function HomePage() {
     const [code, setCode] = useState("// Write your solution here\n");
     const [selectedLanguage, setSelectedLanguage] = useState("javascript");
 
+    // Home page problems carousel state
+    const [manualScrollIndex, setManualScrollIndex] = useState(0);
+    const [isManuallyScrolling, setIsManuallyScrolling] = useState(false);
+    const [lastManualScrollTime, setLastManualScrollTime] = useState(0);
+
     // TeamUp search and filter state
     const [teamupSearchQuery, setTeamupSearchQuery] = useState("");
     const [teamupCategoryFilter, setTeamupCategoryFilter] = useState("");
@@ -298,6 +303,76 @@ export default function HomePage() {
         setSelectedProblem(problem);
         setIsInSolvingMode(true);
         setCode("// Write your solution here\n");
+    };
+
+    // Handle manual scrolling in problems container
+    const handleProblemsScroll = (direction: 'up' | 'down') => {
+        if (combinedProblems.problems.length <= 5) return;
+
+        const maxIndex = Math.max(0, combinedProblems.problems.length - 5);
+        setIsManuallyScrolling(true);
+        setLastManualScrollTime(Date.now());
+
+        setManualScrollIndex(prev => {
+            if (direction === 'up') {
+                return Math.max(0, prev - 1);
+            } else {
+                return Math.min(maxIndex, prev + 1);
+            }
+        });
+
+        // Reset to auto-scroll after 10 seconds of no manual interaction
+        setTimeout(() => {
+            if (Date.now() - lastManualScrollTime >= 10000) {
+                setIsManuallyScrolling(false);
+            }
+        }, 10000);
+    };
+
+    const handleContainerWheel = (e: React.WheelEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        e.nativeEvent.preventDefault();
+        e.nativeEvent.stopImmediatePropagation();
+
+        const direction = e.deltaY > 0 ? 'down' : 'up';
+        handleProblemsScroll(direction);
+
+        // Additional safety: return false to prevent any further propagation
+        return false;
+    };
+
+    const handleContainerTouch = (e: React.TouchEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const touch = e.touches[0];
+        const startY = touch.clientY;
+
+        const handleTouchMove = (moveEvent: TouchEvent) => {
+            moveEvent.preventDefault();
+            moveEvent.stopPropagation();
+
+            const currentTouch = moveEvent.touches[0];
+            const deltaY = startY - currentTouch.clientY;
+
+            if (Math.abs(deltaY) > 30) { // Minimum swipe distance
+                const direction = deltaY > 0 ? 'up' : 'down';
+                handleProblemsScroll(direction);
+                document.removeEventListener('touchmove', handleTouchMove);
+                document.removeEventListener('touchend', handleTouchEnd);
+            }
+        };
+
+        const handleTouchEnd = (endEvent: TouchEvent) => {
+            endEvent.preventDefault();
+            endEvent.stopPropagation();
+            document.removeEventListener('touchmove', handleTouchMove);
+            document.removeEventListener('touchend', handleTouchEnd);
+        };
+
+        document.addEventListener('touchmove', handleTouchMove, { passive: false });
+        document.addEventListener('touchend', handleTouchEnd, { passive: false });
     };
 
     // Handle closing problem solving mode
@@ -727,10 +802,110 @@ export default function HomePage() {
                         {!activeQuickCreateTab && activeTab === "home" && (
                             <div className="grid grid-cols-2 gap-6 h-full animate-in fade-in slide-in-from-right-4 duration-500">
                                 {/* Top Left Card */}
-                                <div className="bg-[#1a1a1a] rounded-xl border border-[#333] p-6 flex items-center justify-center">
-                                    <div className="text-center">
-                                        <div className="text-gray-400 text-lg mb-2">Problems Solved</div>
-                                        <div className="text-white text-3xl font-bold">0</div>
+                                <div className="bg-[#1a1a1a] rounded-xl border border-[#333] p-6 flex flex-col">
+                                    <div className="text-gray-400 text-lg mb-4 text-center">All Problems</div>
+                                    <div className="flex-1 flex items-center justify-center relative">
+                                        {combinedProblems.loading ? (
+                                            <div className="text-gray-500">Loading problems...</div>
+                                        ) : combinedProblems.problems.length > 0 ? (
+                                            <div
+                                                className="w-full h-full relative overflow-hidden select-none"
+                                                onWheel={handleContainerWheel}
+                                                onTouchStart={handleContainerTouch}
+                                                onMouseMove={(e) => e.stopPropagation()}
+                                                onScroll={(e) => e.preventDefault()}
+                                                style={{
+                                                    touchAction: 'none',
+                                                    overscrollBehavior: 'contain',
+                                                    userSelect: 'none'
+                                                }}
+                                            >
+                                                {/* Problems container with smooth sliding chain effect */}
+                                                <div className="absolute inset-0 overflow-hidden">
+                                                    {(() => {
+                                                        const totalProblems = combinedProblems.problems.length;
+                                                        const maxStartIndex = Math.max(0, totalProblems - 5);
+
+                                                        // Use manual scroll index if user is manually scrolling, otherwise use auto-scroll
+                                                        let startIndex;
+                                                        if (isManuallyScrolling) {
+                                                            startIndex = manualScrollIndex;
+                                                        } else {
+                                                            const currentTime = Math.floor(Date.now() / 4000); // Change every 4 seconds
+                                                            startIndex = totalProblems <= 5 ? 0 : currentTime % (maxStartIndex + 1);
+                                                        }
+
+                                                        // Calculate the transform offset for smooth sliding
+                                                        const itemHeight = 56; // h-12 (48px) + space-y-2 (8px) = 56px
+                                                        const translateY = -startIndex * itemHeight;
+
+                                                        return (
+                                                            <div
+                                                                className="transition-transform duration-500 ease-in-out"
+                                                                style={{ transform: `translateY(${translateY}px)` }}
+                                                            >
+                                                                <div className="space-y-2">
+                                                                    {combinedProblems.problems.map((problem, index) => {
+                                                                        const difficultyConfig = {
+                                                                            easy: { color: 'text-green-400', bg: 'bg-green-900/50', border: 'border-green-600', emoji: '🟢' },
+                                                                            medium: { color: 'text-yellow-400', bg: 'bg-yellow-900/50', border: 'border-yellow-600', emoji: '🟡' },
+                                                                            hard: { color: 'text-red-400', bg: 'bg-red-900/50', border: 'border-red-600', emoji: '🔴' }
+                                                                        };
+
+                                                                        // Safely get difficulty with proper fallback
+                                                                        const problemDifficulty = problem.difficulty?.toLowerCase() || 'easy';
+                                                                        const diffConfig = difficultyConfig[problemDifficulty as keyof typeof difficultyConfig] || difficultyConfig.easy;
+                                                                        const difficultyLabel = problem.difficulty ?
+                                                                            problem.difficulty.charAt(0).toUpperCase() + problem.difficulty.slice(1) : 'Easy';
+
+                                                                        return (
+                                                                            <div
+                                                                                key={problem.id || `problem-${index}`}
+                                                                                className="h-12 p-2 bg-[#2a2a2a] rounded-lg border border-[#444] hover:border-[#555] transition-all duration-200 cursor-pointer hover:shadow-lg hover:shadow-black/20 transform hover:scale-[1.02] flex-shrink-0"
+                                                                                onClick={() => handleProblemClick(problem)}
+                                                                            >
+                                                                                <div className="flex items-center justify-between h-full">
+                                                                                    <div className="flex-1 min-w-0">
+                                                                                        <div className="text-white text-sm font-medium truncate mb-0.5">
+                                                                                            {problem.title || 'Untitled Problem'}
+                                                                                        </div>
+                                                                                        <div className="flex items-center gap-2">
+                                                                                            <span className={`px-1 py-0.5 ${diffConfig.bg} ${diffConfig.color} text-xs rounded border ${diffConfig.border} flex items-center gap-1`}>
+                                                                                                <span className="text-xs">{diffConfig.emoji}</span>
+                                                                                                {difficultyLabel}
+                                                                                            </span>
+                                                                                            <span className="px-1 py-0.5 bg-blue-900/50 text-blue-400 text-xs rounded border border-blue-600">
+                                                                                                {problem.category || 'General'}
+                                                                                            </span>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })()}
+                                                </div>
+
+                                                {/* Scroll indicator */}
+                                                {combinedProblems.problems.length > 5 && (
+                                                    <div className="absolute bottom-2 right-2 pointer-events-none">
+                                                        <div className="flex items-center gap-1 text-gray-500 text-xs">
+                                                            <div className="w-1 h-1 bg-gray-500 rounded-full animate-pulse"></div>
+                                                            <div className="w-1 h-1 bg-gray-500 rounded-full animate-pulse" style={{ animationDelay: '0.5s' }}></div>
+                                                            <div className="w-1 h-1 bg-gray-500 rounded-full animate-pulse" style={{ animationDelay: '1s' }}></div>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <div className="text-gray-500 text-center">
+                                                <div>No problems available</div>
+                                                <div className="text-xs mt-1">Check your connection</div>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 
@@ -968,7 +1143,10 @@ export default function HomePage() {
                                                             medium: { color: 'text-yellow-400', bg: 'bg-yellow-900/50', border: 'border-yellow-600', emoji: '🟡' },
                                                             hard: { color: 'text-red-400', bg: 'bg-red-900/50', border: 'border-red-600', emoji: '🔴' }
                                                         };
-                                                        const diffConfig = difficultyConfig[problem.difficulty] || difficultyConfig.easy;
+
+                                                        // Safely get difficulty with proper fallback
+                                                        const problemDifficulty = problem.difficulty?.toLowerCase() || 'easy';
+                                                        const diffConfig = difficultyConfig[problemDifficulty as keyof typeof difficultyConfig] || difficultyConfig.easy;
                                                         const difficultyLabel = problem.difficulty ?
                                                             problem.difficulty.charAt(0).toUpperCase() + problem.difficulty.slice(1) : 'Easy';
 
@@ -2137,9 +2315,9 @@ export default function HomePage() {
                                                                         <p className="text-gray-400 text-sm">{page.domain}</p>
                                                                     </div>
                                                                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${page.status === 'active' ? 'bg-green-900 text-green-300' :
-                                                                            page.status === 'creating' ? 'bg-yellow-900 text-yellow-300' :
-                                                                                page.status === 'error' ? 'bg-red-900 text-red-300' :
-                                                                                    'bg-gray-900 text-gray-300'
+                                                                        page.status === 'creating' ? 'bg-yellow-900 text-yellow-300' :
+                                                                            page.status === 'error' ? 'bg-red-900 text-red-300' :
+                                                                                'bg-gray-900 text-gray-300'
                                                                         }`}>
                                                                         {page.status}
                                                                     </span>
