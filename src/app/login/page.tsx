@@ -1,8 +1,60 @@
 import Link from 'next/link';
-import { ArrowLeftIcon, GitHubLogoIcon } from '@radix-ui/react-icons';
+import { ArrowLeftIcon, GitHubLogoIcon, EyeOpenIcon, EyeClosedIcon } from '@radix-ui/react-icons';
 import { GitHubSignInButton } from '../../components/github-signin-button';
+import { useState } from 'react';
+import { signIn } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
+import { useToast } from '@/components/toast-provider';
 
 export default function LoginPage() {
+    const [loginMethod, setLoginMethod] = useState<'github' | 'email'>('email');
+    const [formData, setFormData] = useState({
+        email: '',
+        password: ''
+    });
+    const [showPassword, setShowPassword] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const router = useRouter();
+    const { showToast } = useToast();
+
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({
+            ...prev,
+            [name]: value
+        }));
+    };
+
+    const handleEmailLogin = async (e: React.FormEvent) => {
+        e.preventDefault();
+        
+        if (!formData.email || !formData.password) {
+            showToast('Email and password are required', 'error');
+            return;
+        }
+
+        setLoading(true);
+
+        try {
+            const result = await signIn('credentials', {
+                email: formData.email,
+                password: formData.password,
+                redirect: false,
+            });
+
+            if (result?.error) {
+                showToast('Invalid email or password', 'error');
+            } else if (result?.ok) {
+                showToast('Login successful!', 'success');
+                router.push('/home');
+            }
+        } catch (error) {
+            showToast('Login failed. Please try again.', 'error');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return (
         <div className="w-full min-h-screen bg-black relative" style={{ background: 'black' }}>
             {/* Back button in top left corner */}
@@ -16,26 +68,129 @@ export default function LoginPage() {
 
             {/* Main content - responsive layout */}
             <div className="flex flex-col md:flex-row min-h-screen pt-16 md:pt-0">
-                {/* Left side - GitHub login (smaller section on desktop, full width on mobile) */}
+                {/* Left side - Login options */}
                 <div className="w-full md:w-2/5 flex flex-col justify-center items-center px-4 md:px-8 py-8 md:py-0 min-h-[50vh] md:min-h-0">
-                    <div className="text-center space-y-6 md:space-y-8 max-w-xs md:max-w-sm">
+                    <div className="w-full max-w-sm space-y-6">
                         {/* Welcome text */}
                         <div className="space-y-3 md:space-y-4">
                             <h2 className="text-white text-2xl md:text-3xl font-semibold">
-                                Welcome to Codeer
+                                Welcome Back
                             </h2>
                             <p className="text-gray-500 text-sm">
-                                Sign in with your GitHub account to get started
+                                Sign in to continue your coding journey
                             </p>
                         </div>
 
-                        {/* GitHub login button */}
-                        <GitHubSignInButton />
+                        {/* Login method toggle */}
+                        <div className="flex bg-gray-900 rounded-lg p-1">
+                            <button
+                                type="button"
+                                onClick={() => setLoginMethod('email')}
+                                className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
+                                    loginMethod === 'email'
+                                        ? 'bg-blue-600 text-white'
+                                        : 'text-gray-400 hover:text-gray-300'
+                                }`}
+                            >
+                                Email
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setLoginMethod('github')}
+                                className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
+                                    loginMethod === 'github'
+                                        ? 'bg-blue-600 text-white'
+                                        : 'text-gray-400 hover:text-gray-300'
+                                }`}
+                            >
+                                GitHub
+                            </button>
+                        </div>
+
+                        {/* Email login form */}
+                        {loginMethod === 'email' && (
+                            <form onSubmit={handleEmailLogin} className="space-y-4">
+                                <div>
+                                    <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-1">
+                                        Email Address
+                                    </label>
+                                    <input
+                                        type="email"
+                                        id="email"
+                                        name="email"
+                                        value={formData.email}
+                                        onChange={handleInputChange}
+                                        placeholder="your@email.com"
+                                        required
+                                        className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-1">
+                                        Password
+                                    </label>
+                                    <div className="relative">
+                                        <input
+                                            type={showPassword ? 'text' : 'password'}
+                                            id="password"
+                                            name="password"
+                                            value={formData.password}
+                                            onChange={handleInputChange}
+                                            placeholder="Enter your password"
+                                            required
+                                            className="w-full px-3 py-2 pr-10 bg-gray-900 border border-gray-700 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPassword(!showPassword)}
+                                            className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-300"
+                                        >
+                                            {showPassword ? <EyeClosedIcon className="w-4 h-4" /> : <EyeOpenIcon className="w-4 h-4" />}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center justify-between">
+                                    <Link href="/forgot-password" className="text-sm text-blue-400 hover:text-blue-300">
+                                        Forgot password?
+                                    </Link>
+                                </div>
+
+                                <button
+                                    type="submit"
+                                    disabled={loading}
+                                    className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 disabled:cursor-not-allowed text-white px-4 py-2 rounded-md font-medium transition-colors duration-200"
+                                >
+                                    {loading ? 'Signing In...' : 'Sign In'}
+                                </button>
+                            </form>
+                        )}
+
+                        {/* GitHub login */}
+                        {loginMethod === 'github' && (
+                            <div className="space-y-4">
+                                <GitHubSignInButton />
+                                <p className="text-gray-500 text-xs text-center">
+                                    GitHub login provides access to Pages feature
+                                </p>
+                            </div>
+                        )}
+
+                        {/* Sign up link */}
+                        <div className="text-center">
+                            <p className="text-gray-500 text-sm">
+                                Don't have an account?{' '}
+                                <Link href="/signup" className="text-blue-400 hover:text-blue-300 font-medium">
+                                    Sign up
+                                </Link>
+                            </p>
+                        </div>
 
                         {/* Quote section */}
                         <div className="space-y-3 md:space-y-4 pt-4 md:pt-6">
                             <blockquote className="text-gray-300 text-base md:text-lg italic font-light leading-relaxed">
-                                "Why only GitHub? Because you are a codeer"
+                                "Code, solve, and grow with every challenge"
                             </blockquote>
                         </div>
 
@@ -98,7 +253,7 @@ export default function LoginPage() {
                                 </h1>
                                 {/* Optional: Add a subtle tagline - responsive */}
                                 <p className="text-gray-500 text-xs md:text-sm mt-3 md:mt-6 tracking-widest uppercase font-light">
-                                    code • create • collaborate
+                                    solve • learn • compete
                                 </p>
                             </div>
                         </div>

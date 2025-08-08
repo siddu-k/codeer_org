@@ -13,8 +13,98 @@ export interface User {
   display_name?: string
   avatar_url?: string
   github_username?: string
+  total_xp: number
+  problems_solved: number
+  current_streak: number
+  max_streak: number
+  last_solved_at?: string
+  preferred_language?: string
+  bio?: string
+  location?: string
+  website_url?: string
   created_at: string
   updated_at: string
+}
+
+export interface Problem {
+  id: string
+  title: string
+  description: string
+  difficulty: 'easy' | 'medium' | 'hard'
+  category: string
+  tags: string[]
+  time_limit: number
+  memory_limit: number
+  boilerplate_code: string
+  solution?: string
+  hints: string[]
+  marks: number
+  status: 'draft' | 'published' | 'archived'
+  created_by_user_id?: string
+  total_submissions: number
+  total_accepted: number
+  acceptance_rate: number
+  created_at: string
+  updated_at: string
+  // Relations
+  created_by?: User
+  test_cases?: ProblemTestCase[]
+}
+
+export interface ProblemTestCase {
+  id: string
+  problem_id: string
+  input: string
+  expected_output: string
+  is_hidden: boolean
+  explanation?: string
+  order_index: number
+  created_at: string
+}
+
+export interface UserProblemStatus {
+  id: string
+  user_id: string
+  problem_id: string
+  status: 'unattempted' | 'attempted' | 'solved' | 'viewed_solution'
+  last_attempted_at?: string
+  solved_at?: string
+  xp_earned: number
+  attempts_count: number
+  best_runtime?: number
+  best_memory?: number
+  created_at: string
+  updated_at: string
+}
+
+export interface Submission {
+  id: string
+  user_id: string
+  problem_id: string
+  code: string
+  language: string
+  status: 'Accepted' | 'Wrong Answer' | 'Time Limit Exceeded' | 'Memory Limit Exceeded' | 'Compilation Error' | 'Runtime Error' | 'Pending' | 'Internal Error'
+  runtime?: number
+  memory?: number
+  judge0_token?: string
+  test_case_results: any[]
+  compile_output?: string
+  error_message?: string
+  submitted_at: string
+  // Relations
+  user?: User
+  problem?: Problem
+}
+
+export interface UserAchievement {
+  id: string
+  user_id: string
+  achievement_type: 'first_solve' | 'streak' | 'difficulty_master' | 'problem_creator' | 'community_contributor'
+  title: string
+  description: string
+  icon?: string
+  earned_at: string
+  metadata: any
 }
 
 export interface TeamupPost {
